@@ -20,7 +20,7 @@
   --ink-3: #525963;         /* faint / captions */
 
   /* signal */
-  --amber: #f5a623;         /* primary accent — fault, verdict, attention */
+  --amber: #e08a00;         /* primary accent — fault, verdict, attention */
   --amber-dim: #b97a14;
   --amber-glow: rgba(245, 166, 35, 0.14);
   --red: #e5484d;           /* out-of-mandate / proximate cause */
@@ -151,8 +151,11 @@ code, .mono { font-family: var(--font-mono); }
   background: rgba(10, 11, 13, 0.7);
   border-bottom: 1px solid var(--line);
 }
+/* full-bleed on purpose: the bar reads as a fixed instrument frame, so the brand
+   sits against the left edge and the links against the right rather than being
+   confined to the same 1200px column the page content uses */
 .nav-inner {
-  max-width: var(--maxw); margin: 0 auto; padding: 14px var(--pad);
+  padding: 14px var(--pad);
   display: flex; align-items: center; justify-content: space-between; gap: 20px;
 }
 .brand { display: flex; align-items: center; gap: 12px; color: var(--ink-0); }
@@ -242,6 +245,9 @@ code, .mono { font-family: var(--font-mono); }
   margin: 18px 0 0;
 }
 .hero-title .accent { color: var(--amber); }
+/* the failure line, called out in alarm red — a literal value rather than a token
+   because it is this one headline, not a system-wide signal colour */
+.hero-title .alarm { color: #fa0000; }
 .hero-lede {
   margin-top: 26px;
   font-size: clamp(17px, 2vw, 21px);
