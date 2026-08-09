@@ -20,3 +20,6 @@ FaultLine.md
 *.local.md
 NOTES.md
 TODO.md
+
+# raw video sources (compressed versions ship in web/app/public)
+assets/source/
