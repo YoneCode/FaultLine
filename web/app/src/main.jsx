@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { PrivyProvider, usePrivy, useWallets } from "@privy-io/react-auth";
+import { PrivyProvider, usePrivy, useWallets, useConnectWallet } from "@privy-io/react-auth";
 import { testnetBradbury } from "genlayer-js/chains";
 import "./styles.css";
 import Landing from "./pages/Landing.jsx";
@@ -34,22 +34,26 @@ function useRoute() {
 }
 
 function WalletButtonInner() {
-  const { ready, authenticated, login, logout } = usePrivy();
+  // Connect-only flow: no SIWE sign-in message, so no phishing screen and no
+  // "resources: privy.io" prompt. The connected wallet is enough — reads are
+  // public and writes are signed per-transaction by the user.
+  const { ready } = usePrivy();
+  const { connectWallet } = useConnectWallet();
   const { wallets } = useWallets();
   const wallet = pickWallet(wallets);
   if (!ready) return null;
-  if (!authenticated || !wallet) {
+  if (!wallet) {
     return (
-      <button className="btn btn-wallet" onClick={login}>
+      <button className="btn btn-wallet" onClick={() => connectWallet()}>
         Connect wallet
       </button>
     );
   }
   const addr = wallet.address;
   return (
-    <button className="btn btn-wallet connected" onClick={logout} title="Disconnect">
+    <span className="btn btn-wallet connected" title="Wallet connected">
       {addr.slice(0, 6)}…{addr.slice(-4)}
-    </button>
+    </span>
   );
 }
 
