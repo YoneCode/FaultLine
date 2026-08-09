@@ -1,0 +1,107 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" role="img" aria-label="FaultLine architecture: agents stream traces to content-addressed storage, commitments anchor on-chain, and a bonded investigation finalizes a verdict through leader LLM judgment plus deterministic validation on GenLayer Bradbury.">
+  <defs>
+    <marker id="fl-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#8a8a8a"/>
+    </marker>
+    <marker id="fl-arrow-amber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#e08a00"/>
+    </marker>
+  </defs>
+
+  <!-- ══ OFF-CHAIN EVIDENCE ══ -->
+  <text x="24" y="30" font-size="11" letter-spacing="2" fill="#8a8a8a">OFF-CHAIN · PRE-INCIDENT</text>
+
+  <!-- five agents -->
+  <g fill="none" stroke="#4cc3d9" stroke-width="1.5">
+    <rect x="24"  y="44"  width="120" height="30" rx="5" fill="#0d1b1e"/>
+    <rect x="24"  y="84"  width="120" height="30" rx="5" fill="#0d1b1e"/>
+    <rect x="24"  y="124" width="120" height="30" rx="5" fill="#0d1b1e"/>
+    <rect x="24"  y="164" width="120" height="30" rx="5" fill="#0d1b1e"/>
+    <rect x="24"  y="204" width="120" height="30" rx="5" fill="#0d1b1e"/>
+  </g>
+  <g font-size="12" fill="#cdeef4">
+    <text x="84" y="63"  text-anchor="middle">scout</text>
+    <text x="84" y="103" text-anchor="middle">planner</text>
+    <text x="84" y="143" text-anchor="middle">compliance</text>
+    <text x="84" y="183" text-anchor="middle">executor</text>
+    <text x="84" y="223" text-anchor="middle">auditor</text>
+  </g>
+
+  <!-- recorder -->
+  <rect x="196" y="110" width="120" height="58" rx="6" fill="#141414" stroke="#8a8a8a" stroke-width="1.5"/>
+  <text x="256" y="135" text-anchor="middle" font-size="12" fill="#e6e6e6">recorder</text>
+  <text x="256" y="152" text-anchor="middle" font-size="10" fill="#8a8a8a">structured trace</text>
+
+  <!-- content-addressed storage -->
+  <rect x="372" y="104" width="150" height="70" rx="6" fill="#141414" stroke="#8a8a8a" stroke-width="1.5"/>
+  <text x="447" y="130" text-anchor="middle" font-size="12" fill="#e6e6e6">content-addressed</text>
+  <text x="447" y="147" text-anchor="middle" font-size="12" fill="#e6e6e6">storage · IPFS</text>
+  <text x="447" y="163" text-anchor="middle" font-size="10" fill="#8a8a8a">trace + mandate bytes</text>
+
+  <!-- agent → recorder, recorder → storage -->
+  <g stroke="#8a8a8a" stroke-width="1.3" fill="none" marker-end="url(#fl-arrow)">
+    <path d="M144 59  C 168 59, 172 118, 196 124"/>
+    <path d="M144 99  C 170 99, 172 122, 196 128"/>
+    <path d="M144 139 L 196 139"/>
+    <path d="M144 179 C 170 179, 172 156, 196 150"/>
+    <path d="M144 219 C 168 219, 172 160, 196 154"/>
+  </g>
+  <path d="M316 139 L 372 139" stroke="#8a8a8a" stroke-width="1.3" fill="none" marker-end="url(#fl-arrow)"/>
+  <text x="344" y="130" text-anchor="middle" font-size="10" fill="#8a8a8a">stream</text>
+
+  <!-- storage → anchor (sha256) -->
+  <path d="M447 174 L 447 244" stroke="#e08a00" stroke-width="1.4" fill="none" marker-end="url(#fl-arrow-amber)"/>
+  <text x="447" y="206" text-anchor="middle" font-size="10" fill="#e08a00">sha256 commitments</text>
+  <text x="447" y="220" text-anchor="middle" font-size="10" fill="#e08a00">anchored pre-incident</text>
+
+  <!-- ══ ON-CHAIN ══ -->
+  <rect x="24" y="252" width="832" height="196" rx="10" fill="#100f0c" stroke="#b97a14" stroke-opacity="0.45" stroke-dasharray="5 4"/>
+  <text x="40" y="276" font-size="11" letter-spacing="2" fill="#e08a00">ON-CHAIN · GENLAYER BRADBURY (CHAIN 4221)</text>
+
+  <!-- contract box -->
+  <rect x="352" y="292" width="190" height="140" rx="8" fill="#17130b" stroke="#e08a00" stroke-width="1.6"/>
+  <text x="447" y="314" text-anchor="middle" font-size="13" font-weight="bold" fill="#f0b23e">FaultLine contract</text>
+  <text x="447" y="330" text-anchor="middle" font-size="10" fill="#c9a05a">0x9494…DAe97</text>
+  <g font-size="10.5" fill="#d8b56a">
+    <text x="366" y="352">· re-hash evidence</text>
+    <text x="366" y="368">· deterministic ground truth</text>
+    <text x="366" y="384">· bond escrow + refund</text>
+    <text x="366" y="400">· verdict event</text>
+  </g>
+
+  <!-- consensus: leader + validators -->
+  <rect x="592" y="292" width="248" height="140" rx="8" fill="#141414" stroke="#8a8a8a" stroke-width="1.4"/>
+  <text x="716" y="314" text-anchor="middle" font-size="12" fill="#e6e6e6">optimistic consensus</text>
+
+  <rect x="606" y="326" width="106" height="42" rx="5" fill="#1b1410" stroke="#e5484d" stroke-width="1.3"/>
+  <text x="659" y="343" text-anchor="middle" font-size="11" fill="#f0a2a5">leader</text>
+  <text x="659" y="358" text-anchor="middle" font-size="10" fill="#c98a8c">LLM judgment ×1</text>
+
+  <rect x="724" y="326" width="106" height="42" rx="5" fill="#0e1a10" stroke="#46a758" stroke-width="1.3"/>
+  <text x="777" y="343" text-anchor="middle" font-size="11" fill="#a6d9ae">validators</text>
+  <text x="777" y="358" text-anchor="middle" font-size="10" fill="#7fb487">deterministic check</text>
+
+  <text x="659" y="388" text-anchor="middle" font-size="10" fill="#8a8a8a">proposes verdict</text>
+  <text x="777" y="388" text-anchor="middle" font-size="10" fill="#8a8a8a">re-check shape + roles</text>
+  <text x="716" y="416" text-anchor="middle" font-size="11" fill="#a6d9ae">5/5 AGREE · finalized</text>
+
+  <!-- opener / bond -->
+  <rect x="40" y="312" width="150" height="56" rx="6" fill="#141414" stroke="#8a8a8a" stroke-width="1.5"/>
+  <text x="115" y="335" text-anchor="middle" font-size="12" fill="#e6e6e6">investigator</text>
+  <text x="115" y="351" text-anchor="middle" font-size="10" fill="#8a8a8a">bonded open · 0.01 GEN</text>
+
+  <!-- consumers -->
+  <rect x="40" y="384" width="150" height="44" rx="6" fill="#141414" stroke="#4cc3d9" stroke-width="1.4"/>
+  <text x="115" y="403" text-anchor="middle" font-size="11" fill="#cdeef4">downstream</text>
+  <text x="115" y="418" text-anchor="middle" font-size="9.5" fill="#8fb9c1">insurers · staking · courts</text>
+
+  <!-- flows -->
+  <path d="M190 340 L 352 340" stroke="#e08a00" stroke-width="1.4" fill="none" marker-end="url(#fl-arrow-amber)"/>
+  <text x="271" y="331" text-anchor="middle" font-size="10" fill="#e08a00">open + inline evidence</text>
+
+  <path d="M542 340 L 592 340" stroke="#8a8a8a" stroke-width="1.3" fill="none" marker-end="url(#fl-arrow)"/>
+  <path d="M712 347 L 724 347" stroke="#8a8a8a" stroke-width="1.2" fill="none" marker-end="url(#fl-arrow)"/>
+
+  <path d="M542 380 L 560 380 C 575 380, 570 425, 560 425 L 190 425" stroke="#46a758" stroke-width="1.4" fill="none" marker-end="url(#fl-arrow)"/>
+  <text x="360" y="417" text-anchor="middle" font-size="10" fill="#a6d9ae">finalized verdict (event) · bond refunded</text>
+</svg>
