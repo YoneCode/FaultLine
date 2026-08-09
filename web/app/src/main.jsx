@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { PrivyProvider, usePrivy, useWallets, useConnectWallet } from "@privy-io/react-auth";
+import { PrivyProvider, usePrivy, useWallets } from "@privy-io/react-auth";
 import { testnetBradbury } from "genlayer-js/chains";
 import "./styles.css";
 import Landing from "./pages/Landing.jsx";
@@ -34,11 +34,13 @@ function useRoute() {
 }
 
 function WalletButtonInner() {
-  // Connect-only flow: no SIWE sign-in message, so no phishing screen and no
-  // "resources: privy.io" prompt. The connected wallet is enough — reads are
-  // public and writes are signed per-transaction by the user.
-  const { ready } = usePrivy();
-  const { connectWallet } = useConnectWallet();
+  // Standard Privy flow: connectWallet to link an external wallet; gate on the
+  // connected wallet itself (not `authenticated`, which only flips with SIWE).
+  // Disconnect: call logout() to clear Privy's linked-wallet/auth state, then
+  // unlink the wallet by address if a user session exists. We avoid
+  // wallet.disconnect() — Privy's docs note external wallets (MetaMask) don't
+  // support programmatic disconnect.
+  const { ready, user, connectWallet, logout, unlinkWallet } = usePrivy();
   const { wallets } = useWallets();
   const wallet = pickWallet(wallets);
   if (!ready) return null;
@@ -50,11 +52,21 @@ function WalletButtonInner() {
     );
   }
   const addr = wallet.address;
+  const onDisconnect = async () => {
+    try {
+      // Unlink the wallet from the Privy user if a session exists (SIWE); no-op
+      // otherwise. Then clear auth state so the UI returns to "Connect wallet".
+      if (user && unlinkWallet) await unlinkWallet(addr);
+    } catch {
+      /* unlink can throw if the wallet isn't linked to a user session — fine */
+    }
+    await logout().catch(() => {});
+  };
   return (
     <button
       className="btn btn-wallet connected"
       title="Click to disconnect"
-      onClick={() => wallet.disconnect()}
+      onClick={onDisconnect}
     >
       {addr.slice(0, 6)}…{addr.slice(-4)}
     </button>

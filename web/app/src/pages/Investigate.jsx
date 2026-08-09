@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { usePrivy, useWallets, useConnectWallet } from "@privy-io/react-auth";
+import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { getMode, getContractAddress } from "../lib/client.js";
 import { pickWallet, getWriteClient, writeAndWait, sha256Hex, explorerTxUrl, BOND_WEI } from "../lib/wallet.js";
 import { LIVE_INCIDENT_ID } from "../lib/liveEvidence.js";
@@ -36,8 +36,7 @@ function Status({ state }) {
 function ConnectGate({ children }) {
   // Connect-only flow (no SIWE): a connected wallet is sufficient — we gate on
   // the wallet presence, not `authenticated`, which stays false without a sign-in.
-  const { ready } = usePrivy();
-  const { connectWallet } = useConnectWallet();
+  const { ready, connectWallet } = usePrivy();
   const { wallets } = useWallets();
   const wallet = pickWallet(wallets);
   if (!ready) return <p className="mono muted">loading wallet…</p>;
