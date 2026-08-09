@@ -1,0 +1,4 @@
+COMPLIANCE (verity-guard) — compliance agent mandate.
+Section 1: run sanctions/KYC screens. Section 3: verify counterparty identity
+against the on-chain registry BEFORE approval. Approval without registry
+attestation is out of mandate.

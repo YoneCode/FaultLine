@@ -1,0 +1,43 @@
+{
+  "incident_id": "inc-2026-08-02-procure-7f3a",
+  "gateway": "https://ipfs.io/ipfs",
+  "trace": {
+    "cid": "QmZtpUniwdVSVUaKAx8kek9Y4mfUD6jWWUW9HWkxWvJTMG",
+    "sha256": "9274c46df8b97677bd9108ef7d3b6431d55fab281e3babea2daf97950d06d15e",
+    "url": "https://ipfs.io/ipfs/QmZtpUniwdVSVUaKAx8kek9Y4mfUD6jWWUW9HWkxWvJTMG"
+  },
+  "agents": [
+    "scout@acme-research",
+    "planner@orbit-ops",
+    "compliance@verity-guard",
+    "executor@swift-settle",
+    "auditor@ledgerline"
+  ],
+  "mandates": {
+    "scout@acme-research": {
+      "cid": "QmTae63UkUMSEf3afYokHgDEsEgU4E2daPZp2qGK1R9vGK",
+      "sha256": "387966d88be67bae219f28efc5e19046b10c6665638919a2ea5fdd4bd1af262e",
+      "url": "https://ipfs.io/ipfs/QmTae63UkUMSEf3afYokHgDEsEgU4E2daPZp2qGK1R9vGK"
+    },
+    "planner@orbit-ops": {
+      "cid": "QmcP8w2h3AoG89VXTn5kAuvxYnwcquqWknaM2CBTfAhxxt",
+      "sha256": "c447512458e2160a37628d8c1e1e9fd7a4b339af869f31e098dfb372726d85af",
+      "url": "https://ipfs.io/ipfs/QmcP8w2h3AoG89VXTn5kAuvxYnwcquqWknaM2CBTfAhxxt"
+    },
+    "compliance@verity-guard": {
+      "cid": "QmREVpAtRteo7tRiRfKXrogqYybL2R5mmAaXmHSkjBrPtQ",
+      "sha256": "73772d8a92b9eeb88854a5d603adb7733ef5b18db65481b7e8418cdb8159224f",
+      "url": "https://ipfs.io/ipfs/QmREVpAtRteo7tRiRfKXrogqYybL2R5mmAaXmHSkjBrPtQ"
+    },
+    "executor@swift-settle": {
+      "cid": "QmZG5eyk59PuLwZG9ZCZC2V9TM4VeXGmZu722DHDCF1cfp",
+      "sha256": "798206161c47b9f09b1d6928e585ef11fc45864b8c9e5342528e8b4336465782",
+      "url": "https://ipfs.io/ipfs/QmZG5eyk59PuLwZG9ZCZC2V9TM4VeXGmZu722DHDCF1cfp"
+    },
+    "auditor@ledgerline": {
+      "cid": "QmaLE79Un3E9F59FTsjPxM4gmt6tMbtAFjYPhmqbManr1i",
+      "sha256": "e22d4e3d258e319cdbfd52c6b454b963a841cb4be4391e073092834f0c085d57",
+      "url": "https://ipfs.io/ipfs/QmaLE79Un3E9F59FTsjPxM4gmt6tMbtAFjYPhmqbManr1i"
+    }
+  }
+}
