@@ -1,18 +1,21 @@
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { PrivyProvider, usePrivy, useWallets } from "@privy-io/react-auth";
-import { testnetBradbury } from "genlayer-js/chains";
+import {
+  RainbowKitProvider,
+  ConnectButton,
+} from "@rainbow-me/rainbowkit";
+import "@rainbow-me/rainbowkit/styles.css";
 import "./styles.css";
 import Landing from "./pages/Landing.jsx";
 import Report from "./pages/Report.jsx";
 import Investigate from "./pages/Investigate.jsx";
 import Logo from "./components/Logo.jsx";
 import { primaryIncidentId } from "./lib/client.js";
-import { pickWallet } from "./lib/wallet.js";
+import { WalletProviders, rainbowKitTheme } from "./lib/wagmiConfig.js";
 
-// Privy app ID is a PUBLIC client identifier (safe to bundle, like a GA ID).
-// Without it the app runs read-only and the connect button is hidden.
-const PRIVY_APP_ID = import.meta.env.VITE_PRIVY_APP_ID || "";
+// Wallet connection is RainbowKit + wagmi. ConnectButton handles connect AND
+// disconnect for external wallets (MetaMask, WalletConnect) out of the box,
+// and it uses WalletConnect's relay rather than auth.privy.io.
 
 // Tiny hash router — no dependency. #/ is landing, #/report/:id is a report,
 // #/investigate is the on-chain write flow.
@@ -31,51 +34,6 @@ function useRoute() {
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
   return route;
-}
-
-function WalletButtonInner() {
-  // Standard Privy flow: connectWallet to link an external wallet; gate on the
-  // connected wallet itself (not `authenticated`, which only flips with SIWE).
-  // Disconnect: call logout() to clear Privy's linked-wallet/auth state, then
-  // unlink the wallet by address if a user session exists. We avoid
-  // wallet.disconnect() — Privy's docs note external wallets (MetaMask) don't
-  // support programmatic disconnect.
-  const { ready, user, connectWallet, logout, unlinkWallet } = usePrivy();
-  const { wallets } = useWallets();
-  const wallet = pickWallet(wallets);
-  if (!ready) return null;
-  if (!wallet) {
-    return (
-      <button className="btn btn-wallet" onClick={() => connectWallet()}>
-        Connect wallet
-      </button>
-    );
-  }
-  const addr = wallet.address;
-  const onDisconnect = async () => {
-    try {
-      // Unlink the wallet from the Privy user if a session exists (SIWE); no-op
-      // otherwise. Then clear auth state so the UI returns to "Connect wallet".
-      if (user && unlinkWallet) await unlinkWallet(addr);
-    } catch {
-      /* unlink can throw if the wallet isn't linked to a user session — fine */
-    }
-    await logout().catch(() => {});
-  };
-  return (
-    <button
-      className="btn btn-wallet connected"
-      title="Click to disconnect"
-      onClick={onDisconnect}
-    >
-      {addr.slice(0, 6)}…{addr.slice(-4)}
-    </button>
-  );
-}
-
-function WalletButton() {
-  if (!PRIVY_APP_ID) return null;
-  return <WalletButtonInner />;
 }
 
 function Nav({ route }) {
@@ -97,7 +55,41 @@ function Nav({ route }) {
           <a href="#/investigate" className={route.name === "investigate" ? "active" : ""}>
             Investigate
           </a>
-          <WalletButton />
+          <ConnectButton.Custom>
+            {({ account, chain, openAccountModal, openChainModal, openConnectModal, authenticationStatus, mounted }) => {
+              const ready = mounted && authenticationStatus !== "loading";
+              const connected = ready && account && chain;
+              if (!connected) {
+                return (
+                  <button className="btn btn-wallet" onClick={openConnectModal} type="button">
+                    Connect wallet
+                  </button>
+                );
+              }
+              if (chain.unsupported) {
+                return (
+                  <button className="btn btn-wallet" onClick={openChainModal} type="button">
+                    Wrong network
+                  </button>
+                );
+              }
+              return (
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <button className="btn btn-wallet" onClick={openChainModal} type="button" style={{ fontSize: 11 }}>
+                    {chain.name}
+                  </button>
+                  <button
+                    className="btn btn-wallet connected"
+                    onClick={openAccountModal}
+                    type="button"
+                    title="Account & disconnect"
+                  >
+                    {account.displayName}
+                  </button>
+                </div>
+              );
+            }}
+          </ConnectButton.Custom>
         </nav>
       </div>
     </header>
@@ -157,19 +149,10 @@ function App() {
   );
 }
 
-const root = createRoot(document.getElementById("root"));
-root.render(
-  PRIVY_APP_ID ? (
-    <PrivyProvider
-      appId={PRIVY_APP_ID}
-      config={{
-        defaultChain: testnetBradbury,
-        supportedChains: [testnetBradbury],
-      }}
-    >
+createRoot(document.getElementById("root")).render(
+  <WalletProviders>
+    <RainbowKitProvider theme={rainbowKitTheme}>
       <App />
-    </PrivyProvider>
-  ) : (
-    <App />
-  )
+    </RainbowKitProvider>
+  </WalletProviders>
 );

@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
-import { usePrivy, useWallets } from "@privy-io/react-auth";
+import { useAccount, useSwitchChain } from "wagmi";
 import { getMode, getContractAddress } from "../lib/client.js";
-import { pickWallet, getWriteClient, writeAndWait, sha256Hex, explorerTxUrl, BOND_WEI } from "../lib/wallet.js";
+import { BRADBURY_CHAIN_ID, getWriteClient, writeAndWait, sha256Hex, explorerTxUrl, BOND_WEI } from "../lib/wallet.js";
 import { LIVE_INCIDENT_ID } from "../lib/liveEvidence.js";
 
 // ── small form primitives (inline styles to match the existing design system) ──
@@ -34,26 +34,37 @@ function Status({ state }) {
 }
 
 function ConnectGate({ children }) {
-  // Connect-only flow (no SIWE): a connected wallet is sufficient — we gate on
-  // the wallet presence, not `authenticated`, which stays false without a sign-in.
-  const { ready, connectWallet } = usePrivy();
-  const { wallets } = useWallets();
-  const wallet = pickWallet(wallets);
-  if (!ready) return <p className="mono muted">loading wallet…</p>;
-  if (!wallet) {
+  // wagmi-based gate: a connected wallet is sufficient for writes. We build the
+  // same {address, switchChain, getEthereumProvider} shape getWriteClient expects,
+  // from wagmi's connector — so the existing write path works unchanged.
+  const { address, connector, status } = useAccount();
+  const { switchChainAsync } = useSwitchChain();
+
+  if (status === "reconnecting") return <p className="mono muted">loading wallet…</p>;
+  if (!address || !connector) {
     return (
       <div className="callout">
         <span>●</span>
         <span>
-          Connect a wallet to run an investigation. You sign with your own wallet on GenLayer
-          Bradbury — FaultLine never sees a private key.{" "}
-          <button className="btn btn--primary" style={{ marginLeft: 10, padding: "6px 12px", fontSize: 12 }} onClick={() => connectWallet()}>
-            Connect wallet
-          </button>
+          Connect a wallet (top-right) to run an investigation. You sign with your own wallet on
+          GenLayer Bradbury — FaultLine never sees a private key.
         </span>
       </div>
     );
   }
+
+  // Adapter so getWriteClient (which expects switchChain + getEthereumProvider)
+  // works with wagmi's connector.
+  const wallet = {
+    address,
+    async switchChain(chainId) {
+      await switchChainAsync({ chainId });
+    },
+    async getEthereumProvider() {
+      // wagmi connectors expose an EIP-1193 provider via getProvider.
+      return connector.getProvider ? connector.getProvider() : connector;
+    },
+  };
   return children(wallet);
 }
 
