@@ -14,3 +14,9 @@ artifacts/
 
 # editor snapshots
 .faultline-backups/
+
+# working notes / whitepaper drafts — not part of the shipped dapp
+FaultLine.md
+*.local.md
+NOTES.md
+TODO.md
