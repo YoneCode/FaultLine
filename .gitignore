@@ -1,0 +1,16 @@
+node_modules/
+dist/
+web/app/dist/
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+.venv312/
+.env
+.env.local
+artifacts/
+*.log
+.DS_Store
+
+# editor snapshots
+.faultline-backups/
