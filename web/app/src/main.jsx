@@ -51,9 +51,13 @@ function WalletButtonInner() {
   }
   const addr = wallet.address;
   return (
-    <span className="btn btn-wallet connected" title="Wallet connected">
+    <button
+      className="btn btn-wallet connected"
+      title="Click to disconnect"
+      onClick={() => wallet.disconnect()}
+    >
       {addr.slice(0, 6)}…{addr.slice(-4)}
-    </span>
+    </button>
   );
 }
 
