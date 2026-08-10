@@ -10,10 +10,11 @@ import {
 const REPORT_HREF = `#/report/${primaryIncidentId()}`;
 
 // Inline looping clip that stands in for a punctuation mark in a headline.
-function Punct({ src, label }) {
+function Punct({ src, label, delay }) {
   return (
     <video
-      className="punct-vid"
+      className={`punct-vid${delay != null ? " punct-in" : ""}`}
+      style={delay != null ? { animationDelay: `${delay}ms` } : undefined}
       src={src}
       autoPlay
       muted
@@ -22,6 +23,50 @@ function Punct({ src, label }) {
       aria-label={label}
     />
   );
+}
+
+/* Hero choreography — one authored sequence:
+   1. the alarm types on character by character, like a recorder readout
+   2. the fault line cuts through it — one continuous beam, drawn as per-word
+      strike segments so it survives line wraps on narrow screens
+   3. the verdict line assembles word by word underneath                     */
+
+function Teletype({ text, base = 0, step = 24, strikeAt = null }) {
+  let ci = 0;
+  return text.split(" ").map((word, w) => {
+    const start = ci;
+    ci += word.length + 1; // account for the separating space
+    const strikeStyle =
+      strikeAt != null
+        ? {
+            "--sd": `${strikeAt + start * 14}ms`,
+            "--sdur": `${Math.max(word.length * 14, 90)}ms`,
+          }
+        : undefined;
+    return (
+      <React.Fragment key={w}>
+        {w > 0 && " "}
+        <span className={`tt-word${strikeAt != null ? " tt-strike" : ""}`} style={strikeStyle}>
+          {word.split("").map((ch, k) => (
+            <span key={k} className="tt-ch" style={{ animationDelay: `${base + (start + k) * step}ms` }}>
+              {ch}
+            </span>
+          ))}
+        </span>
+      </React.Fragment>
+    );
+  });
+}
+
+function Assemble({ text, base = 0, step = 110 }) {
+  return text.split(" ").map((word, w) => (
+    <React.Fragment key={w}>
+      {w > 0 && " "}
+      <span className="asm-word" style={{ animationDelay: `${base + w * step}ms` }}>
+        {word}
+      </span>
+    </React.Fragment>
+  ));
 }
 
 function Hero() {
@@ -40,24 +85,36 @@ function Hero() {
       />
       <div className="hero-scrim" aria-hidden="true" />
       <div className="hero-inner shell">
-        <span className="eyebrow">GenLayer Intelligent Contract</span>
+        <span className="eyebrow hero-support" style={{ animationDelay: "100ms" }}>
+          GenLayer Intelligent Contract
+        </span>
         <h1 className="hero-title">
-          <span className="alarm">When five agents fail together<Punct src="/gesso.mp4" label="," /></span>
+          <span className="alarm" aria-label="When five agents fail together,">
+            <span aria-hidden="true">
+              <Teletype text="When five agents fail together" strikeAt={1100} />
+            </span>
+            <Punct src="/gesso.mp4" label="," delay={1000} />
+          </span>
           <br />
-          <span className="accent">someone has to read the black box<Punct src="/flower.mp4" label="." /></span>
+          <span className="accent" aria-label="someone has to read the black box.">
+            <span aria-hidden="true">
+              <Assemble text="someone has to read the black box" base={1550} />
+            </span>
+            <Punct src="/flower.mp4" label="." delay={2600} />
+          </span>
         </h1>
-        <p className="hero-lede">
+        <p className="hero-lede hero-support" style={{ animationDelay: "1200ms" }}>
           Multi-agent swarms now move real money. When one produces a costly failure, every
           vendor's agent blames the others — and the only record is each vendor's own logs.
           FaultLine apportions causal fault across every agent as a percentage, trustlessly
           and automatically, from a tamper-proof trace. No one files a case. No one grades
           their own homework.
         </p>
-        <div className="hero-cta">
+        <div className="hero-cta hero-support" style={{ animationDelay: "1400ms" }}>
           <a className="btn btn--primary" href={REPORT_HREF}>Open a live report →</a>
           <a className="btn btn--ghost" href="#how">How it works</a>
         </div>
-        <div className="hero-meta">
+        <div className="hero-meta hero-support" style={{ animationDelay: "1600ms" }}>
           <span>CONSENSUS <b>deterministic validation</b></span>
           <span>EVIDENCE <b>hash-anchored, pre-incident</b></span>
           <span>OUTPUT <b>N-party fault %</b></span>

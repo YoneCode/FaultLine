@@ -40,7 +40,7 @@
 
 :root {
   /* surface scale — near-black, slightly warm, layered */
-  --bg-0: #0a0b0d;          /* page ground */
+  --bg-0: #000000;          /* page ground */
   --bg-1: #101216;          /* panel */
   --bg-2: #16181d;          /* raised panel */
   --bg-3: #1d2026;          /* hover / inset */
@@ -293,6 +293,70 @@ code, .mono { font-family: var(--font-mono); }
   vertical-align: -0.04em;
   margin-left: 0.03em;
 }
+.punct-in { animation: punct-pop 0.35s cubic-bezier(0.16, 1, 0.3, 1) both; }
+@keyframes punct-pop {
+  from { opacity: 0; transform: scale(0.4); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ── hero title choreography ───────────────────────────────────────────────
+   One authored sequence: the alarm types on like a flight-recorder readout,
+   a red fault line cuts through it (per-word segments timed as one beam so
+   it survives wraps), then the verdict line assembles underneath. Default
+   state is fully visible — JS and aria fallbacks keep the text readable. */
+
+.hero-title .alarm .tt-ch {
+  opacity: 0;
+  animation: tt-in 0.08s ease-out forwards;
+}
+@keyframes tt-in {
+  to { opacity: 1; }
+}
+
+.tt-word { position: relative; display: inline-block; }
+/* the cut: a beam that sweeps across each word as the strike is drawn —
+   the recorder marks the failure, it doesn't fade it */
+.tt-word.tt-strike::after {
+  content: "";
+  position: absolute;
+  left: -0.02em;
+  right: -0.02em;
+  top: 0.55em;
+  height: 0.075em;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #ff0008, #ff0008);
+  box-shadow: 0 0 0.12em rgba(255, 0, 8, 0.55);
+  transform: scaleX(0);
+  transform-origin: left center;
+  animation-name: tt-strike;
+  animation-duration: 160ms;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+  animation-delay: var(--sd, 1100ms);
+  animation-duration: var(--sdur, 160ms);
+}
+@keyframes tt-strike {
+  to { transform: scaleX(1); }
+}
+
+.asm-word {
+  display: inline-block;
+  opacity: 0;
+  animation: asm-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes asm-in {
+  from { opacity: 0; transform: translateY(0.22em); }
+  to { opacity: 1; transform: none; }
+}
+
+.hero-support {
+  opacity: 0;
+  animation: support-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes support-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
 .hero-title {
   font-size: clamp(38px, 6.4vw, 84px);
   /* Plex Sans caps at 700 — the display weight step comes from size + tight
@@ -400,6 +464,9 @@ code, .mono { font-family: var(--font-mono); }
   .console, .console.on { opacity: 1; transform: none; transition: none; }
   .console-trace .trace-line { opacity: 1; animation: none !important; }
   .console .fault-fill, .console.on .fault-fill.on { transform: scaleX(var(--pct, 0)); transition: none; }
+  /* hero: everything visible, instantly, including the cut */
+  .hero-title .tt-ch, .asm-word, .hero-support, .punct-in { opacity: 1 !important; animation: none !important; transform: none !important; }
+  .tt-word.tt-strike::after { transform: scaleX(1) !important; animation: none !important; }
 }
 
 /* ── trace log ── */
