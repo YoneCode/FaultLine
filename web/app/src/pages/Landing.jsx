@@ -165,21 +165,24 @@ function How() {
    the trace hash draws in. All data is the finalized live investigation. */
 
 // IntersectionObserver hook — flips `on` once, then stays on.
-function useInView() {
-  const ref = useRef(null);
+// Callback ref (not useRef): the observed element only exists after the
+// verdict loads, so the observer must attach when the element MOUNTS —
+// a [] effect with useRef would run while the component still returns null
+// and the panel would stay invisible forever on slow connections.
+function useInView(threshold = 0.2) {
+  const [el, setEl] = useState(null);
   const [on, setOn] = useState(false);
   useEffect(() => {
-    const el = ref.current;
     if (!el) return undefined;
     if (typeof IntersectionObserver === "undefined") { setOn(true); return undefined; }
     const io = new IntersectionObserver(
       (entries) => entries.some((e) => e.isIntersecting) && setOn(true),
-      { threshold: 0.35 }
+      { threshold }
     );
     io.observe(el);
     return () => io.disconnect();
-  }, []);
-  return [ref, on];
+  }, [el, threshold]);
+  return [setEl, on];
 }
 
 // Ramping ticker: eases from 0 to `target` over ~`dur`ms when `on`.
@@ -205,7 +208,7 @@ function ReportTeaser() {
   const [consoleOn, setConsoleOn] = useState(false); // begins replay after boot
   const live = getMode() === "live";
   const provenance = getProvenance();
-  const [ref, on] = useInView();
+  const [ref, on] = useInView(0.2);
 
   useEffect(() => {
     let live_ = true;
