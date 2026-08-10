@@ -20,9 +20,7 @@ function friendlyError(e) {
   if (/insufficient funds/i.test(s))
     return "not enough GEN for gas + the 0.01 GEN bond — fund this wallet with Bradbury testnet GEN first";
   if (/cannot unmarshal .*Request\.id|Parse error as single request/i.test(s))
-    return "your wallet's relay submitted the transaction with a string RPC id, which the Bradbury node rejects — a wallet/relay quirk, not your evidence. Retry with the MetaMask browser extension, and tell the FaultLine operator which wallet failed.";
-  if (/eth_signTransaction.*(does not exist|not supported|method not found|is not available)/i.test(s))
-    return "this wallet cannot sign without broadcasting (eth_signTransaction unsupported) — use the MetaMask browser extension on Bradbury.";
+    return "your wallet broadcast with a string RPC id and Bradbury rejected it — reload the page, approve the one-time “update network” prompt (it points your wallet at our id-normalizing RPC), and retry. Your evidence is fine.";
   return s;
 }
 

@@ -32,37 +32,57 @@ export function pickWallet(wallets) {
 }
 
 // Build a genlayer-js client that signs with the connected wallet.
-// Ensures the wallet is on Bradbury first (assertChainMatch inside genlayer-js
-// throws if it isn't, and we want a clean switch rather than an error).
+// The account is passed as an address string, so genlayer-js routes
+// eth_sendTransaction through the wallet's EIP-1193 provider and the wallet
+// broadcasts — the only flow browser wallets universally support
+// (eth_signTransaction sign-only is NOT available on MetaMask).
 //
-// We do NOT pass the address as a plain string: that path ends in
-// eth_sendTransaction, and the wallet then broadcasts with its own RPC stack —
-// MetaMask's json-rpc engine emits STRING request ids, which the Bradbury Go
-// gateway rejects ("cannot unmarshal string into Go struct field Request.id of
-// type int"). Instead we hand over a "local"-type account whose signer
-// delegates to the wallet's eth_signTransaction (sign-only, no broadcast);
-// genlayer-js then takes its local-account branch and broadcasts the signed
-// bytes itself via its direct JSON-RPC transport, which uses integer ids.
+// The wallet broadcast problem this works around: MetaMask's json-rpc engine
+// emits STRING request ids when it relays the signed transaction to the
+// network's RPC, and Bradbury's Go gateway only accepts integer ids
+// ("cannot unmarshal string into Go struct field Request.id of type int").
+// So before the first write of a session we point the wallet's Bradbury
+// network at our same-origin id-normalizing proxy (functions/rpc.js) via
+// wallet_addEthereumChain — a one-time "update network" consent prompt.
+const BRADBURY_HEX_CHAIN_ID = "0x1085"; // 4221
+const RPC_REGISTERED_KEY = "faultline_rpc_proxy_registered";
+
+async function ensureProxyRpcRegistered(provider, wallet) {
+  if (typeof window === "undefined" || typeof sessionStorage === "undefined") return;
+  // Embedded wallets (Privy) broadcast through their own infra, not a
+  // user-configured RPC — there is nothing to re-point.
+  if (wallet && wallet.walletClientType === "privy") return;
+  if (sessionStorage.getItem(RPC_REGISTERED_KEY) === "1") return;
+  try {
+    await provider.request({
+      method: "wallet_addEthereumChain",
+      params: [
+        {
+          chainId: BRADBURY_HEX_CHAIN_ID,
+          chainName: "GenLayer Bradbury",
+          nativeCurrency: { name: "GEN", symbol: "GEN", decimals: 18 },
+          // Same-origin proxy first: it rewrites string JSON-RPC ids to ints
+          // before forwarding to the upstream gateway, and restores them in
+          // the response so the wallet's response-id check still passes.
+          rpcUrls: [`${window.location.origin}/rpc`],
+          blockExplorerUrls: [EXPLORER],
+        },
+      ],
+    });
+    sessionStorage.setItem(RPC_REGISTERED_KEY, "1");
+  } catch {
+    // User declined the network update, or this wallet can't add chains.
+    // Continue — the write may still work if the wallet's relay already
+    // sends integer ids (non-MetaMask wallets often do).
+  }
+}
+
 export async function getWriteClient(wallet) {
   if (!wallet) throw new Error("No wallet connected");
-  await wallet.switchChain(BRADBURY_CHAIN_ID);
   const provider = await wallet.getEthereumProvider();
-  const account = {
-    address: wallet.address,
-    type: "local",
-    // genlayer-js calls this with a viem tx request; the wallet signs it and
-    // returns the raw signed transaction without submitting anything.
-    async signTransaction(tx) {
-      const req = { from: wallet.address };
-      for (const [k, v] of Object.entries(tx)) {
-        if (k === "account" || v === undefined || v === null) continue;
-        if (k === "type") { req.type = v === "legacy" ? "0x0" : v; continue; }
-        req[k] = typeof v === "bigint" || typeof v === "number" ? `0x${v.toString(16)}` : v;
-      }
-      return provider.request({ method: "eth_signTransaction", params: [req] });
-    },
-  };
-  return createClient({ chain: testnetBradbury, account, provider });
+  await ensureProxyRpcRegistered(provider, wallet);
+  await wallet.switchChain(BRADBURY_CHAIN_ID);
+  return createClient({ chain: testnetBradbury, account: wallet.address, provider });
 }
 
 // A write can fail at the EVM-submission layer while the tx never reaches
