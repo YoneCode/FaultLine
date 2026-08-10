@@ -148,7 +148,7 @@ code, .mono { font-family: var(--font-mono); }
 
 /* ── panel / instrument card ── */
 .panel {
-  background: linear-gradient(180deg, var(--bg-1), var(--bg-1));
+  background: var(--bg-1);
   border: 1px solid var(--line);
   border-radius: var(--r-md);
   box-shadow: var(--elev);
@@ -228,7 +228,7 @@ code, .mono { font-family: var(--font-mono); }
 .nav-links a {
   font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.1em;
   color: var(--ink-2); padding: 8px 12px; border-radius: 6px;
-  text-transform: uppercase;
+  text-transform: uppercase; white-space: nowrap;
 }
 .nav-links a:hover, .nav-links a.active { color: var(--ink-0); background: var(--bg-2); text-decoration: none; }
 
@@ -419,7 +419,7 @@ code, .mono { font-family: var(--font-mono); }
 }
 .spec-row:last-child { border-bottom: 0; }
 .spec-k { color: var(--ink-2); letter-spacing: 0.04em; }
-.spec-v { color: var(--ink-0); text-align: right; word-break: break-all; }
+.spec-v { color: var(--ink-0); text-align: right; overflow-wrap: anywhere; }
 .spec-v.mono-tint { color: var(--mono-tint); }
 
 /* ── fault bars (the signature component) ── */

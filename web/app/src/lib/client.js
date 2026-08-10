@@ -132,7 +132,8 @@ export async function getMandates(incidentId) {
 
 export async function getGroundTruth(incidentId) {
   if (getMode() === "live") {
-    return incidentId === LIVE_INCIDENT_ID ? deriveGroundTruth(LIVE_TRACE) : null;
+    // mapTrace first: deriveGroundTruth reads `agent`, live events carry `agent_id`
+    return incidentId === LIVE_INCIDENT_ID ? deriveGroundTruth(mapTrace(LIVE_TRACE)) : null;
   }
   return incidentId === SAMPLE_INCIDENT_ID ? SAMPLE_GROUND_TRUTH : null;
 }
