@@ -24,6 +24,7 @@ import {
   LIVE_MANDATES,
   LIVE_MANDATE_META,
 } from "./liveEvidence.js";
+import { sha256Hex } from "./hash.js";
 
 // The deployed v0.5.0 contract on Bradbury — the one that finalized the live
 // verdict (tx 0x479359…c34e9). Hardcoded so the dapp is live out of the box;
@@ -67,10 +68,46 @@ export function getContractAddress() {
   return CONTRACT_ADDRESS;
 }
 
+export function isPinnedIncident(incidentId) {
+  return getMode() === "live" && incidentId === LIVE_INCIDENT_ID;
+}
+
+// ── local evidence cache ─────────────────────────────────────────────────────
+// open_investigation receives the trace/mandate bytes as CALLDATA and stores
+// only their sha256 commitments — the contract cannot serve the evidence back.
+// So /investigate saves the exact bytes it submitted (they were hash-verified
+// by the contract at open time) into localStorage, and the report page
+// re-verifies them before rendering. A browser without the cache still gets
+// the verdict — that one always comes from the chain.
+const EVIDENCE_PREFIX = "faultline:evidence:";
+
+export function saveEvidence(incidentId, ev) {
+  try {
+    localStorage.setItem(EVIDENCE_PREFIX + incidentId, JSON.stringify(ev));
+  } catch { /* storage full / private mode — the report degrades to verdict-only */ }
+}
+
+export function loadEvidence(incidentId) {
+  try {
+    const s = localStorage.getItem(EVIDENCE_PREFIX + incidentId);
+    return s ? JSON.parse(s) : null;
+  } catch { return null; }
+}
+
+function listCachedIncidentIds() {
+  try {
+    return Object.keys(localStorage)
+      .filter((k) => k.startsWith(EVIDENCE_PREFIX))
+      .map((k) => k.slice(EVIDENCE_PREFIX.length));
+  } catch { return []; }
+}
+
 export async function listIncidents() {
-  // The contract stores per-incident records; enumeration comes from verdict
-  // events via an indexer. The known incidents are the canonical list.
-  return [getMode() === "live" ? LIVE_INCIDENT_ID : SAMPLE_INCIDENT_ID];
+  // The contract has no enumeration view; the canonical list is the pinned
+  // incident plus whatever this browser opened (evidence cache keys).
+  if (getMode() !== "live") return [SAMPLE_INCIDENT_ID];
+  const cached = listCachedIncidentIds().filter((id) => id !== LIVE_INCIDENT_ID);
+  return [LIVE_INCIDENT_ID, ...cached];
 }
 
 export function primaryIncidentId() {
@@ -101,37 +138,53 @@ function deriveGroundTruth(events) {
 
 export async function getVerdict(incidentId) {
   if (getMode() === "live") {
-    if (incidentId !== LIVE_INCIDENT_ID) return null;
-    const client = await getLiveClient();
-    const raw = await client.readContract({
-      address: CONTRACT_ADDRESS,
-      functionName: "get_verdict",
-      args: [incidentId],
-    });
+    // Any incident id reads from the chain — the verdict is never bundled.
+    const raw = await readLive("get_verdict", [incidentId]);
     if (!raw) return null;
-    return {
+    const base = {
       incident_id: incidentId,
       ...JSON.parse(raw),
       network: "GenLayer Bradbury",
       consensus: "deterministic validation · leader-executed LLM",
-      validators: 5,
-      opened_at: OPENED_AT,
-      finalized_at: FINALIZED_AT,
     };
+    // Timestamps/validator count are verified constants for the pinned
+    // incident only — for others they would be guesses (the Incident record
+    // has no public view), so they come from the local evidence cache or stay
+    // blank. No guessing.
+    if (incidentId === LIVE_INCIDENT_ID) {
+      return { ...base, validators: 5, opened_at: OPENED_AT, finalized_at: FINALIZED_AT };
+    }
+    const ev = loadEvidence(incidentId);
+    return { ...base, ...(ev && ev.openedAt ? { opened_at: ev.openedAt } : {}) };
   }
   return incidentId === SAMPLE_INCIDENT_ID ? SAMPLE_VERDICT : null;
 }
 
+// Parse + integrity-check the cached evidence bytes. Returns null when the
+// cache is absent or no longer hashes to the anchored digest (tampered).
+async function verifiedCachedTrace(incidentId) {
+  const ev = loadEvidence(incidentId);
+  if (!ev || !ev.traceText || !ev.traceSha) return null;
+  const digest = await sha256Hex(ev.traceText);
+  if (digest !== ev.traceSha) return null;
+  return mapTrace(ev.traceText.split("\n").filter((l) => l.trim()).map((l) => JSON.parse(l)));
+}
+
 export async function getTrace(incidentId) {
   if (getMode() === "live") {
-    return incidentId === LIVE_INCIDENT_ID ? mapTrace(LIVE_TRACE) : [];
+    if (incidentId === LIVE_INCIDENT_ID) return mapTrace(LIVE_TRACE);
+    return (await verifiedCachedTrace(incidentId)) ?? [];
   }
   return incidentId === SAMPLE_INCIDENT_ID ? SAMPLE_TRACE : [];
 }
 
 export async function getMandates(incidentId) {
   if (getMode() === "live") {
-    return incidentId === LIVE_INCIDENT_ID ? LIVE_MANDATES : {};
+    if (incidentId === LIVE_INCIDENT_ID) return LIVE_MANDATES;
+    // The contract re-hashed these exact bytes against the on-chain anchors
+    // at open time — a successful open IS the verification.
+    const ev = loadEvidence(incidentId);
+    return ev && ev.mandates ? ev.mandates : {};
   }
   return incidentId === SAMPLE_INCIDENT_ID ? SAMPLE_MANDATES : {};
 }
@@ -139,27 +192,43 @@ export async function getMandates(incidentId) {
 export async function getGroundTruth(incidentId) {
   if (getMode() === "live") {
     // mapTrace first: deriveGroundTruth reads `agent`, live events carry `agent_id`
-    return incidentId === LIVE_INCIDENT_ID ? deriveGroundTruth(mapTrace(LIVE_TRACE)) : null;
+    if (incidentId === LIVE_INCIDENT_ID) return deriveGroundTruth(mapTrace(LIVE_TRACE));
+    const trace = await verifiedCachedTrace(incidentId);
+    return trace ? deriveGroundTruth(trace) : null;
   }
   return incidentId === SAMPLE_INCIDENT_ID ? SAMPLE_GROUND_TRUTH : null;
 }
 
 // Provenance for the report header — only fully-verified on-chain references.
-// The trace-anchor tx hash was never recorded in full, so it is NOT linked
-// (no guessing); the trace itself is content-addressed by sha256 + IPFS CID.
-export function getProvenance() {
+// Pinned incident: the recorded constants. Any other incident: what the local
+// evidence cache carries from its own write receipt (tx hash, trace digest),
+// never reconstructed guesses.
+export function getProvenance(incidentId) {
   if (getMode() !== "live") return null;
+  if (incidentId === LIVE_INCIDENT_ID) {
+    return {
+      contract: CONTRACT_ADDRESS,
+      contractUrl: `${EXPLORER}/address/${CONTRACT_ADDRESS}`,
+      investigationTx: INVESTIGATION_TX,
+      investigationTxUrl: `${EXPLORER}/tx/${INVESTIGATION_TX}`,
+      traceSha256: LIVE_TRACE_SHA256,
+      traceUri: LIVE_TRACE_URI,
+      mandateMeta: LIVE_MANDATE_META,
+      network: "GenLayer Bradbury",
+      openedAt: OPENED_AT,
+      finalizedAt: FINALIZED_AT,
+    };
+  }
+  const ev = loadEvidence(incidentId);
   return {
     contract: CONTRACT_ADDRESS,
     contractUrl: `${EXPLORER}/address/${CONTRACT_ADDRESS}`,
-    investigationTx: INVESTIGATION_TX,
-    investigationTxUrl: `${EXPLORER}/tx/${INVESTIGATION_TX}`,
-    traceSha256: LIVE_TRACE_SHA256,
-    traceUri: LIVE_TRACE_URI,
-    mandateMeta: LIVE_MANDATE_META,
+    investigationTx: ev && ev.txHash ? ev.txHash : null,
+    investigationTxUrl: ev && ev.txHash ? `${EXPLORER}/tx/${ev.txHash}` : null,
+    traceSha256: ev && ev.traceSha ? ev.traceSha : null,
+    traceUri: ev && ev.traceUri ? ev.traceUri : null,
     network: "GenLayer Bradbury",
-    openedAt: OPENED_AT,
-    finalizedAt: FINALIZED_AT,
+    openedAt: ev && ev.openedAt ? ev.openedAt : null,
   };
 }
 
@@ -171,5 +240,11 @@ export async function getReport(incidentId) {
     getGroundTruth(incidentId),
   ]);
   if (!verdict) return null;
-  return { verdict, trace, mandates, groundTruth, provenance: getProvenance() };
+  const evidenceSource =
+    getMode() !== "live" || incidentId === LIVE_INCIDENT_ID
+      ? "bundled"
+      : loadEvidence(incidentId)
+        ? "cache"
+        : "none";
+  return { verdict, trace, mandates, groundTruth, provenance: getProvenance(incidentId), evidenceSource };
 }

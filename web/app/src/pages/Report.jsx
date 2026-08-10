@@ -37,12 +37,12 @@ function Header({ verdict, groundTruth, provenance }) {
         <div className="spec">
           <div className="spec-row"><span className="spec-k">network</span><span className="spec-v">{verdict.network}</span></div>
           <div className="spec-row"><span className="spec-k">consensus</span><span className="spec-v">{verdict.consensus}</span></div>
-          <div className="spec-row"><span className="spec-k">validators</span><span className="spec-v">{verdict.validators}</span></div>
-          <div className="spec-row"><span className="spec-k">distinct recorders</span><span className="spec-v">{verdict.distinct_recorders ?? groundTruth?.distinct_recorders}</span></div>
+          <div className="spec-row"><span className="spec-k">validators</span><span className="spec-v">{verdict.validators ?? "—"}</span></div>
+          <div className="spec-row"><span className="spec-k">distinct recorders</span><span className="spec-v">{verdict.distinct_recorders ?? groundTruth?.distinct_recorders ?? "—"}</span></div>
         </div>
         <div className="spec">
-          <div className="spec-row"><span className="spec-k">opened</span><span className="spec-v mono-tint">{verdict.opened_at}</span></div>
-          <div className="spec-row"><span className="spec-k">finalized</span><span className="spec-v mono-tint">{verdict.finalized_at}</span></div>
+          <div className="spec-row"><span className="spec-k">opened</span><span className="spec-v mono-tint">{verdict.opened_at ?? "—"}</span></div>
+          <div className="spec-row"><span className="spec-k">finalized</span><span className="spec-v mono-tint">{verdict.finalized_at ?? "—"}</span></div>
           <div className="spec-row"><span className="spec-k">agents implicated</span><span className="spec-v">{verdict.allocations.length}</span></div>
           <div className="spec-row"><span className="spec-k">trace events</span><span className="spec-v">{groundTruth?.event_count ?? "—"}</span></div>
         </div>
@@ -50,14 +50,16 @@ function Header({ verdict, groundTruth, provenance }) {
 
       {provenance && (
         <div className="spec mt-16">
-          <div className="spec-row">
-            <span className="spec-k">finalized tx</span>
-            <span className="spec-v">
-              <a className="mono" href={provenance.investigationTxUrl} target="_blank" rel="noreferrer">
-                {provenance.investigationTx.slice(0, 18)}… ↗
-              </a>
-            </span>
-          </div>
+          {provenance.investigationTx && (
+            <div className="spec-row">
+              <span className="spec-k">finalized tx</span>
+              <span className="spec-v">
+                <a className="mono" href={provenance.investigationTxUrl} target="_blank" rel="noreferrer">
+                  {provenance.investigationTx.slice(0, 18)}… ↗
+                </a>
+              </span>
+            </div>
+          )}
           <div className="spec-row">
             <span className="spec-k">contract</span>
             <span className="spec-v">
@@ -66,10 +68,12 @@ function Header({ verdict, groundTruth, provenance }) {
               </a>
             </span>
           </div>
-          <div className="spec-row">
-            <span className="spec-k">trace sha256</span>
-            <span className="spec-v mono-tint mono">{provenance.traceSha256.slice(0, 20)}…</span>
-          </div>
+          {provenance.traceSha256 && (
+            <div className="spec-row">
+              <span className="spec-k">trace sha256</span>
+              <span className="spec-v mono-tint mono">{provenance.traceSha256.slice(0, 20)}…</span>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -149,6 +153,7 @@ function CauseFlow({ groundTruth, verdict }) {
 }
 
 function TraceLog({ trace, activeCite, citedSet }) {
+  if (!trace || !trace.length) return null;
   return (
     <div className="panel">
       <div className="panel-pad" style={{ paddingBottom: 0 }}>
@@ -221,7 +226,9 @@ export default function Report({ incidentId }) {
   useEffect(() => {
     let live = true;
     getReport(incidentId)
-      .then((r) => live && (r ? setReport(r) : setErr("Incident not found.")))
+      .then((r) => live && (r ? setReport(r) : setErr(
+        "Incident not found on-chain — check the id for typos (it must match the one you opened with, character for character). If you just opened it, wait for the transaction to reach ACCEPTED, then reload."
+      )))
       .catch((e) => live && setErr(String(e)));
     return () => { live = false; };
   }, [incidentId]);
@@ -268,6 +275,26 @@ export default function Report({ incidentId }) {
           <span>
             Live — this verdict was finalized by GenLayer validator consensus on Bradbury.
             The percentages below are read from the contract, not bundled with this page.
+          </span>
+        </div>
+      )}
+      {report.evidenceSource === "cache" && (
+        <div className="callout" style={{ marginBottom: 18 }}>
+          <span>●</span>
+          <span>
+            The trace and mandate bytes come from this browser's local evidence cache — the contract
+            stores only their sha256 commitments, having re-hashed these exact bytes at open time.
+            The verdict above is read live from the chain.
+          </span>
+        </div>
+      )}
+      {report.evidenceSource === "none" && (
+        <div className="callout" style={{ marginBottom: 18 }}>
+          <span>●</span>
+          <span>
+            Verdict read live from the contract. The trace and mandate bytes ride in the
+            investigation's calldata, not in storage — open this report in the browser that ran the
+            investigation to see them (they are served from its local evidence cache).
           </span>
         </div>
       )}

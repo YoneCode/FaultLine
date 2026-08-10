@@ -15,6 +15,9 @@
 //     connected wallet's address as `account` and its EIP-1193 provider.
 import { createClient } from "genlayer-js";
 import { testnetBradbury } from "genlayer-js/chains";
+import { sha256Hex } from "./hash.js";
+
+export { sha256Hex };
 
 export const BRADBURY_CHAIN_ID = 4221; // 0x1085
 export const EXPLORER = "https://explorer-bradbury.genlayer.com";
@@ -122,11 +125,4 @@ export async function writeAndWait(client, address, fn, args, value = 0n, onStat
     }
     throw e;
   }
-}
-
-// sha256 of a UTF-8 string, hex, via the Web Crypto API (no dependency).
-export async function sha256Hex(text) {
-  const bytes = new TextEncoder().encode(text);
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }

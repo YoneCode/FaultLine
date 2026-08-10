@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useAccount, useChainId, useSwitchChain, useBalance } from "wagmi";
-import { getMode, getContractAddress, readLive } from "../lib/client.js";
+import { getMode, getContractAddress, readLive, saveEvidence } from "../lib/client.js";
 import { BRADBURY_CHAIN_ID, EXPLORER, getWriteClient, writeAndWait, sha256Hex, explorerTxUrl, BOND_WEI, registerProxyRpc } from "../lib/wallet.js";
 import { LIVE_INCIDENT_ID } from "../lib/liveEvidence.js";
 
@@ -423,6 +423,19 @@ export default function Investigate() {
       );
       setIStatus({ kind: "ok", msg: `investigation finalized for ${id} — bond refunded`, hash });
       setFinalId(id);
+      // The contract stores only the verdict + sha256 commitments — the
+      // evidence bytes rode in as calldata. Cache them locally so the report
+      // page can render the trace/mandates (re-verified against the digests
+      // before display). The verdict itself is always read from the chain.
+      saveEvidence(id, {
+        traceText,
+        traceSha,
+        traceUri: tUri.trim(),
+        agents: agentList,
+        mandates: Object.fromEntries(agentList.map((a, i) => [a, mandateList[i]])),
+        txHash: hash,
+        openedAt: new Date().toISOString(),
+      });
     } catch (e) {
       setIStatus({ kind: "err", msg: friendlyError(e) });
     } finally { setIBusy(false); }
