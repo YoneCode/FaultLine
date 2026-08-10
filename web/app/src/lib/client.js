@@ -202,8 +202,9 @@ export async function getGroundTruth(incidentId) {
 // Provenance for the report header — only fully-verified on-chain references.
 // Pinned incident: the recorded constants. Any other incident: what the local
 // evidence cache carries from its own write receipt (tx hash, trace digest),
-// never reconstructed guesses.
-export function getProvenance(incidentId) {
+// never reconstructed guesses. Callers that want the headline incident
+// (Landing) call this with no argument — the default keeps that contract.
+export function getProvenance(incidentId = LIVE_INCIDENT_ID) {
   if (getMode() !== "live") return null;
   if (incidentId === LIVE_INCIDENT_ID) {
     return {
