@@ -211,7 +211,7 @@ function ReportTeaser() {
               <div className="fault-track">
                 <div
                   className={`fault-fill ${a.role === "proximate" ? "primary" : ""}`}
-                  style={{ width: `${Math.max(a.fault_pct, 1.5)}%` }}
+                  style={{ "--pct": Math.max(a.fault_pct, 1.5) / 100 }}
                 />
               </div>
             </div>

@@ -357,7 +357,11 @@ code, .mono { font-family: var(--font-mono); }
   height: 100%; border-radius: 2px;
   background: linear-gradient(90deg, var(--amber-dim), var(--amber));
   box-shadow: 0 0 12px var(--amber-glow);
-  transition: width 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
+  /* animate the compositor, not layout: full-width bar revealed by scaleX */
+  width: 100%;
+  transform: scaleX(var(--pct, 0));
+  transform-origin: left center;
+  transition: transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 .fault-fill.primary { background: linear-gradient(90deg, #b3313a, var(--red)); }
 .fault-sub { margin-top: 8px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
