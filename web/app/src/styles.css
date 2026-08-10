@@ -14,18 +14,18 @@
   --line-strong: #343a43;
 
   /* ink */
-  --ink-0: #f2f4f6;         /* primary */
-  --ink-1: #b9bfc7;         /* secondary */
-  --ink-2: #7d8590;         /* tertiary / labels */
+  --ink-0: #ffffff;         /* primary */
+  --ink-1: #ffffff;         /* secondary */
+  --ink-2: #ffffff;         /* tertiary / labels */
   --ink-3: #525963;         /* faint / captions */
 
   /* signal */
-  --amber: #e08a00;         /* primary accent — fault, verdict, attention */
-  --amber-dim: #b97a14;
+  --amber: #ff9d00;         /* primary accent — fault, verdict, attention */
+  --amber-dim: #ff9d00;
   --amber-glow: rgba(245, 166, 35, 0.14);
-  --red: #e5484d;           /* out-of-mandate / proximate cause */
-  --green: #46a758;         /* within-mandate / uninvolved */
-  --cyan: #4cc3d9;          /* informational, links, trace */
+  --red: #ff0008;           /* out-of-mandate / proximate cause */
+  --green: #00d627;         /* within-mandate / uninvolved */
+  --cyan: #00d9ff;          /* informational, links, trace */
   --mono-tint: #9aa7ff;     /* identifiers, hashes */
 
   /* type */
@@ -247,7 +247,7 @@ code, .mono { font-family: var(--font-mono); }
 .hero-title .accent { color: var(--amber); }
 /* the failure line, called out in alarm red — a literal value rather than a token
    because it is this one headline, not a system-wide signal colour */
-.hero-title .alarm { color: #fa0000; }
+.hero-title .alarm { color: #ff0000; }
 .hero-lede {
   margin-top: 26px;
   font-size: clamp(17px, 2vw, 21px);

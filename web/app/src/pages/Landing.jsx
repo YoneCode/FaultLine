@@ -26,7 +26,7 @@ function Hero() {
       <div className="hero-inner shell">
         <span className="eyebrow">GenLayer Intelligent Contract</span>
         <h1 className="hero-title">
-          When five agents fail together,
+          <span className="alarm">When five agents fail together,</span>
           <br />
           <span className="accent">someone has to read the black box.</span>
         </h1>
@@ -276,9 +276,9 @@ export default function Landing() {
   return (
     <main>
       <Hero />
+      <ReportTeaser />
       <Problem />
       <How />
-      <ReportTeaser />
       <Why />
       <WhoPays />
     </main>

@@ -149,10 +149,23 @@ function App() {
   );
 }
 
+// Dev-only visual editor overlay. The dynamic import keeps it out of the
+// production bundle entirely; it only exists under `vite` dev.
+function EditorHost() {
+  const [EditorComp, setEditorComp] = useState(null);
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      import("./editor/Editor.jsx").then((m) => setEditorComp(() => m.default)).catch(() => {});
+    }
+  }, []);
+  return EditorComp ? <EditorComp /> : null;
+}
+
 createRoot(document.getElementById("root")).render(
   <WalletProviders>
     <RainbowKitProvider theme={rainbowKitTheme}>
       <App />
+      <EditorHost />
     </RainbowKitProvider>
   </WalletProviders>
 );
