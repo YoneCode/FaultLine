@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useAccount, useChainId, useSwitchChain, useBalance } from "wagmi";
-import { getMode, getContractAddress } from "../lib/client.js";
+import { getMode, getContractAddress, readLive } from "../lib/client.js";
 import { BRADBURY_CHAIN_ID, EXPLORER, getWriteClient, writeAndWait, sha256Hex, explorerTxUrl, BOND_WEI, registerProxyRpc } from "../lib/wallet.js";
 import { LIVE_INCIDENT_ID } from "../lib/liveEvidence.js";
 
@@ -245,6 +245,51 @@ function DoneTag({ children }) {
   return <span className="tag tag--green">✓ {children}</span>;
 }
 
+// One mandate field per agent in step 3. The contract requires the open-time
+// text to sha256-match the digest anchored in step 1 BYTE-FOR-BYTE — a stray
+// trailing newline from a chat paste is enough to fail. So each field is
+// hashed raw (no trimming) and checked live against the on-chain record: the
+// operator watches the ✓ appear instead of discovering the mismatch at submit.
+function MandateField({ agent, value, onChange }) {
+  const [check, setCheck] = useState(null); // {state: "busy"|"match"|"mismatch"|"none", mine, onchain}
+  useEffect(() => {
+    if (!value) { setCheck(null); return; }
+    let cancelled = false;
+    setCheck({ state: "busy" });
+    const t = setTimeout(async () => {
+      try {
+        const mine = await sha256Hex(value);
+        const raw = await readLive("get_mandate", [agent]);
+        if (cancelled) return;
+        const rec = raw ? (typeof raw === "string" ? JSON.parse(raw) : raw) : null;
+        if (!rec || !rec.sha256) { setCheck({ state: "none", mine }); return; }
+        const onchain = String(rec.sha256).toLowerCase().replace(/^0x/, "");
+        setCheck({ state: onchain === mine ? "match" : "mismatch", mine, onchain });
+      } catch { if (!cancelled) setCheck(null); }
+    }, 450);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [agent, value]);
+
+  const line = !check ? null
+    : check.state === "busy" ? { color: "var(--ink-3)", text: "…checking against the anchored digest" }
+    : check.state === "match" ? { color: "var(--green)", text: `✓ matches the anchored mandate · sha256 ${check.mine.slice(0, 16)}…` }
+    : check.state === "none" ? { color: "var(--amber)", text: `no mandate anchored for ${agent} yet — anchor it in step 1` }
+    : { color: "var(--red)", text: `✗ digest mismatch — on-chain ${check.onchain.slice(0, 16)}… ≠ this text ${check.mine.slice(0, 16)}… · the text must be byte-identical to what you anchored (a trailing newline counts)` };
+
+  return (
+    <div style={{ marginTop: 12 }}>
+      <label htmlFor={`i-mandate-${agent}`} style={fieldLabel}>mandate for {agent}</label>
+      <textarea
+        id={`i-mandate-${agent}`}
+        style={{ ...textarea, minHeight: 90 }}
+        value={value}
+        onChange={(e) => onChange(agent, e.target.value)}
+      />
+      {line && <p className="mono" style={{ fontSize: 11, marginTop: 6, color: line.color }} aria-live="polite">{line.text}</p>}
+    </div>
+  );
+}
+
 export default function Investigate() {
   const live = getMode() === "live";
   const contract = getContractAddress();
@@ -268,13 +313,15 @@ export default function Investigate() {
   const [traceSha, setTraceSha] = useState("");
   const [shaCarried, setShaCarried] = useState(false);
   const [traceText, setTraceText] = useState("");
-  const [mandateTexts, setMandateTexts] = useState(""); // one per agent, blank-line separated
+  const [mandateMap, setMandateMap] = useState({}); // agent id -> raw text, byte-exact
   const [iStatus, setIStatus] = useState(null);
   const [iBusy, setIBusy] = useState(false);
   const [finalId, setFinalId] = useState(null);
 
   const agentList = agents.split(/[\n,]+/).map((s) => s.trim()).filter(Boolean);
-  const mandateList = mandateTexts.split(/\n\s*\n/).map((s) => s.trim()).filter(Boolean);
+  // Raw bytes per agent — NO trimming. The contract sha256-compares these
+  // against the step-1 anchors; whitespace is part of the evidence.
+  const mandateList = agentList.map((a) => mandateMap[a] ?? "");
 
   async function anchorMandate(wallet) {
     const since = Date.now();
@@ -339,8 +386,8 @@ export default function Investigate() {
       if (agentList.length < 2) throw new Error("list at least 2 agents");
       if (!/^[0-9a-f]{64}$/.test(traceSha)) throw new Error("anchor the trace in step 2 first (need its sha256)");
       if (!traceText.trim()) throw new Error("paste the trace text (must hash to the anchored sha256)");
-      if (mandateList.length !== agentList.length)
-        throw new Error(`need exactly ${agentList.length} mandate texts (one per agent, blank-line separated) — got ${mandateList.length}`);
+      for (const [i, m] of mandateList.entries())
+        if (!m.trim()) throw new Error(`mandate text missing for ${agentList[i]}`);
       // client-side sanity: the inline evidence must hash to the anchored commitments
       const digest = await sha256Hex(traceText);
       if (digest !== traceSha) throw new Error("trace text does not hash to the anchored sha256 — the contract would reject it");
@@ -363,7 +410,7 @@ export default function Investigate() {
         if (!rec || !rec.sha256) throw new Error(`no pre-anchored mandate for ${a} — anchor it in step 1 first`);
         const d = await sha256Hex(mandateList[i]);
         if (String(rec.sha256).toLowerCase().replace(/^0x/, "") !== d)
-          throw new Error(`mandate ${i + 1} (${a}) does not match its anchored digest — paste the exact text you anchored in step 1`);
+          throw new Error(`mandate ${i + 1} (${a}) does not match its anchored digest — the text must be byte-identical to what you anchored in step 1 (a trailing newline counts); the field above shows the live comparison`);
       }
       const traceCommit = await client.readContract({ address: contract, functionName: "get_trace_commitment", args: [digest] });
       if (!traceCommit) throw new Error("trace digest is not anchored on-chain — run step 2 first");
@@ -495,11 +542,18 @@ export default function Investigate() {
                   <textarea id="i-trace" style={textarea} value={traceText} onChange={(e) => setTraceText(e.target.value)} />
                 </div>
                 <div className="mt-16">
-                  <label htmlFor="i-mandates" style={fieldLabel}>
-                    mandate texts — one per agent, in the same order, separated by a blank line
-                    ({mandateList.length}/{agentList.length})
-                  </label>
-                  <textarea id="i-mandates" style={textarea} placeholder={"mandate for agent 1\n\nmandate for agent 2\n\nmandate for agent 3"} value={mandateTexts} onChange={(e) => setMandateTexts(e.target.value)} />
+                  <span style={fieldLabel}>mandate texts — one field per agent, byte-exact as anchored in step 1</span>
+                  {agentList.length === 0 && (
+                    <p className="faint mono" style={{ fontSize: 12, marginTop: 8 }}>list the agents above first — one field appears per agent</p>
+                  )}
+                  {agentList.map((a) => (
+                    <MandateField
+                      key={a}
+                      agent={a}
+                      value={mandateMap[a] ?? ""}
+                      onChange={(agent, v) => setMandateMap((m) => ({ ...m, [agent]: v }))}
+                    />
+                  ))}
                 </div>
                 <button className="btn btn--primary mt-16" disabled={iBusy || !live} onClick={() => openInvestigation(wallet)}>
                   {iBusy ? "running… (LLM consensus, can take several minutes)" : "Open investigation · lock 0.01 GEN bond"}

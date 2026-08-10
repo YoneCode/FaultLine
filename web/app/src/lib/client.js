@@ -57,6 +57,12 @@ export function getMode() {
   return MODE === "live" && CONTRACT_ADDRESS ? "live" : "demo";
 }
 
+// Raw read passthrough for the live contract (view methods only, no wallet).
+export async function readLive(functionName, args) {
+  const client = await getLiveClient();
+  return client.readContract({ address: CONTRACT_ADDRESS, functionName, args });
+}
+
 export function getContractAddress() {
   return CONTRACT_ADDRESS;
 }
