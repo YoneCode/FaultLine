@@ -242,13 +242,13 @@ code, .mono { font-family: var(--font-mono); }
    it tracks whatever heading it sits in, baseline-aligned with the text */
 .punct-vid {
   display: inline-block;
-  height: 0.82em;
+  height: 0.41em;
   width: auto;
   aspect-ratio: 1;
   object-fit: cover;
-  border-radius: 0.16em;
-  vertical-align: -0.08em;
-  margin-left: 0.06em;
+  border-radius: 0.08em;
+  vertical-align: -0.04em;
+  margin-left: 0.03em;
 }
 .hero-title {
   font-size: clamp(38px, 6.4vw, 84px);
