@@ -126,8 +126,9 @@ function Hero() {
 }
 
 function Problem() {
+  const [ref, on] = useInView(0.2);
   return (
-    <section className="section shell" id="problem">
+    <section className={`section shell reveal${on ? " on" : ""}`} id="problem" ref={ref}>
       <div className="h-block">
         <span className="eyebrow">The problem</span>
         <h2>The happy path is built. The disagreement is not<Punct src="/clock.webm" label="." /></h2>
@@ -138,15 +139,17 @@ function Problem() {
           moment of failure out as someone else's problem. FaultLine is built for that moment.
         </p>
       </div>
+      {/* three logged findings — each panel stamps in like a fault entry:
+          the red indicator pings first, the record registers behind it */}
       <div className="grid grid--3 mt-32">
-        <div className="panel panel-pad">
+        <div className="panel panel-pad finding" style={{ "--i": 0 }}>
           <div className="tag tag--red">NO NEUTRAL RECORD</div>
           <p className="mt-16 muted">
             After a bad outcome there is no shared ground truth — only each vendor's
             self-reported logs and each vendor's own model explaining its own actions.
           </p>
         </div>
-        <div className="panel panel-pad">
+        <div className="panel panel-pad finding" style={{ "--i": 1 }}>
           <div className="tag tag--red">WRONG TOOL</div>
           <p className="mt-16 muted">
             Bilateral courts answer "did A deliver what B paid for." A five-vendor swarm
@@ -154,7 +157,7 @@ function Problem() {
             no escrow and no contract between most of the parties.
           </p>
         </div>
-        <div className="panel panel-pad">
+        <div className="panel panel-pad finding" style={{ "--i": 2 }}>
           <div className="tag tag--red">CONFLICT OF INTEREST</div>
           <p className="mt-16 muted">
             The platform running the swarm is incentivized to blame the outside vendor
@@ -190,8 +193,9 @@ const STEPS = [
 ];
 
 function How() {
+  const [ref, on] = useInView(0.15);
   return (
-    <section className="section shell" id="how">
+    <section className={`section shell reveal${on ? " on" : ""}`} id="how" ref={ref}>
       <div className="h-block">
         <span className="eyebrow">How it works</span>
         <h2>Evidence first. Judgment second. Ruling never<Punct src="/sunflower.webm" label="." /></h2>
@@ -200,9 +204,12 @@ function How() {
           technical record that insurers, staking contracts, and courts consume.
         </p>
       </div>
-      <div className="panel panel-pad mt-32">
-        {STEPS.map((s) => (
-          <div className="step" key={s.n}>
+      {/* a causal chain: the spine draws downward and each station energizes
+          as the line reaches it — the motion IS the sequence */}
+      <div className="panel panel-pad mt-32 spine">
+        <div className="spine-rail" aria-hidden="true" />
+        {STEPS.map((s, i) => (
+          <div className="step spine-step" key={s.n} style={{ "--i": i }}>
             <div className="step-num">{s.n}</div>
             <div>
               <h3>{s.title}</h3>

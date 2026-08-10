@@ -106,8 +106,8 @@ function FaultBars({ verdict, onCite, activeCite }) {
                 {a.within_mandate ? "WITHIN MANDATE" : "OUT OF MANDATE"}
               </span>
               <button
-                className="fault-cite"
-                style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: activeCite === a.trace_index ? "var(--amber)" : "var(--ink-3)" }}
+                className="fault-cite btn-bare"
+                style={{ color: activeCite === a.trace_index ? "var(--amber)" : "var(--ink-2)" }}
                 onClick={() => onCite(a.trace_index)}
                 title="Jump to the cited trace line"
               >
@@ -191,11 +191,12 @@ function Mandates({ mandates }) {
         {ids.map((id) => (
           <div key={id} style={{ borderBottom: "1px solid var(--line)" }}>
             <button
+              className="btn-bare"
               onClick={() => setOpen(open === id ? null : id)}
               style={{
-                width: "100%", textAlign: "left", background: "none", border: "none",
-                color: "var(--cyan)", cursor: "pointer", padding: "12px 0",
-                fontFamily: "var(--font-mono)", fontSize: 13,
+                width: "100%", textAlign: "left",
+                color: "var(--cyan)", padding: "12px 0",
+                fontSize: 13,
               }}
             >
               {open === id ? "▾" : "▸"} {id}

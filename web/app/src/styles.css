@@ -47,18 +47,20 @@
   --line: #262a31;          /* hairline */
   --line-strong: #343a43;
 
-  /* ink */
+  /* ink — the hierarchy IS the instrument: primary/secondary/tertiary must
+     stay three distinct steps or every muted readout flattens to white */
   --ink-0: #ffffff;         /* primary */
-  --ink-1: #ffffff;         /* secondary */
-  --ink-2: #ffffff;         /* tertiary / labels */
-  --ink-3: #525963;         /* faint / captions */
+  --ink-1: #b9bfc7;         /* secondary */
+  --ink-2: #7d8590;         /* tertiary / labels */
+  --ink-3: #525963;         /* faint — borders, whispers, non-text emphasis */
 
-  /* signal */
+  /* signal — bright, but each still has to carry 11px mono text on panels:
+     red/green are lifted just past the contrast floor, not maxed */
   --amber: #ff9d00;         /* primary accent — fault, verdict, attention */
-  --amber-dim: #ff9d00;
+  --amber-dim: #b97a14;     /* the dim step: tag/callout borders, gradient starts */
   --amber-glow: rgba(245, 166, 35, 0.14);
-  --red: #ff0008;           /* out-of-mandate / proximate cause */
-  --green: #00d627;         /* within-mandate / uninvolved */
+  --red: #ff4650;           /* out-of-mandate / proximate cause */
+  --green: #2ec46e;         /* within-mandate / uninvolved */
   --cyan: #00d9ff;          /* informational, links, trace */
   --mono-tint: #9aa7ff;     /* identifiers, hashes */
 
@@ -164,9 +166,9 @@ code, .mono { font-family: var(--font-mono); }
   white-space: nowrap;
 }
 .tag--amber { color: var(--amber); border-color: var(--amber-dim); background: var(--amber-glow); }
-.tag--red { color: var(--red); border-color: rgba(229,72,77,0.4); }
-.tag--green { color: var(--green); border-color: rgba(70,167,88,0.4); }
-.tag--cyan { color: var(--cyan); border-color: rgba(76,195,217,0.4); }
+.tag--red { color: var(--red); border-color: color-mix(in srgb, var(--red) 40%, transparent); }
+.tag--green { color: var(--green); border-color: color-mix(in srgb, var(--green) 40%, transparent); }
+.tag--cyan { color: var(--cyan); border-color: color-mix(in srgb, var(--cyan) 40%, transparent); }
 
 /* ── buttons ── */
 .btn {
@@ -184,8 +186,21 @@ code, .mono { font-family: var(--font-mono); }
 .btn--primary { background: var(--amber); border-color: var(--amber); color: #141414; font-weight: 600; }
 .btn--primary:hover { background: #ffb63d; color: #000; }
 .btn--ghost { background: transparent; }
+.btn:disabled, .btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+.btn:disabled:hover { border-color: var(--line-strong); color: var(--ink-0); transform: none; }
+.btn--primary:disabled:hover { background: var(--amber); color: #141414; }
 .btn-wallet { padding: 8px 14px; font-size: 12px; }
 .btn-wallet.connected { border-color: var(--amber-dim); color: var(--amber); }
+
+/* one visible keyboard ring for every interactive element — amber on the
+   page, offset off the control so it reads on the near-black ground */
+:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+::placeholder { color: var(--ink-3); opacity: 1; }
 
 /* ── nav ── */
 .nav {
@@ -217,12 +232,13 @@ code, .mono { font-family: var(--font-mono); }
 }
 .nav-links a:hover, .nav-links a.active { color: var(--ink-0); background: var(--bg-2); text-decoration: none; }
 
-/* narrow viewports: drop the in-page anchors and the brand subtitle so the bar
-   stays on one line instead of wrapping off the right edge */
+/* narrow viewports: drop the in-page anchors and the brand subtitle and let
+   the rest wrap beneath the brand — otherwise the wallet button is pushed
+   off the right edge and the connect action is unreachable */
 @media (max-width: 720px) {
-  .nav-inner { padding: 12px var(--pad); gap: 12px; }
+  .nav-inner { padding: 12px var(--pad); gap: 8px 12px; flex-wrap: wrap; }
   .brand-sub { display: none; }
-  .nav-secondary { display: none; }
+  .nav-links { flex-wrap: wrap; gap: 2px; }
   .nav-links a { padding: 7px 9px; font-size: 11px; letter-spacing: 0.06em; }
 }
 
@@ -321,15 +337,14 @@ code, .mono { font-family: var(--font-mono); }
   position: absolute;
   left: -0.02em;
   right: -0.02em;
-  top: 0.55em;
-  height: 0.075em;
+  top: 0.52em;             /* centered on the x-height, not the midline */
+  height: 0.07em;
   border-radius: 2px;
-  background: linear-gradient(90deg, #ff0008, #ff0008);
-  box-shadow: 0 0 0.12em rgba(255, 0, 8, 0.55);
+  background: var(--red);
+  box-shadow: 0 0 0.12em color-mix(in srgb, var(--red) 55%, transparent);
   transform: scaleX(0);
   transform-origin: left center;
   animation-name: tt-strike;
-  animation-duration: 160ms;
   animation-timing-function: linear;
   animation-fill-mode: forwards;
   animation-delay: var(--sd, 1100ms);
@@ -367,8 +382,9 @@ code, .mono { font-family: var(--font-mono); }
 }
 .hero-title .accent { color: var(--amber); }
 /* the failure line, called out in alarm red — a literal value rather than a token
-   because it is this one headline, not a system-wide signal colour */
-.hero-title .alarm { color: #ff0000; }
+   because it is this one headline, not a system-wide signal colour; slightly
+   under signal red so the strike cut reads on top of it */
+.hero-title .alarm { color: #ff2830; }
 .hero-lede {
   margin-top: 26px;
   font-size: clamp(17px, 2vw, 21px);
@@ -427,7 +443,7 @@ code, .mono { font-family: var(--font-mono); }
   transform-origin: left center;
   transition: transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
-.fault-fill.primary { background: linear-gradient(90deg, #b3313a, var(--red)); }
+.fault-fill.primary { background: linear-gradient(90deg, #c23840, var(--red)); }
 .fault-sub { margin-top: 8px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .fault-reason { margin-top: 8px; font-size: 13px; color: var(--ink-1); line-height: 1.55; }
 .fault-cite { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); }
@@ -457,7 +473,7 @@ code, .mono { font-family: var(--font-mono); }
 .console .fault-fill { transform: scaleX(0); }
 .console.on .fault-fill.on { transform: scaleX(var(--pct, 0)); }
 
-.console-hash { font-size: 12px; overflow: hidden; white-space: nowrap; }
+.console-hash { font-size: 12px; overflow-wrap: break-word; }
 .console-hash-val { color: var(--mono-tint); letter-spacing: 0.02em; }
 
 @media (prefers-reduced-motion: reduce) {
@@ -467,6 +483,11 @@ code, .mono { font-family: var(--font-mono); }
   /* hero: everything visible, instantly, including the cut */
   .hero-title .tt-ch, .asm-word, .hero-support, .punct-in { opacity: 1 !important; animation: none !important; transform: none !important; }
   .tt-word.tt-strike::after { transform: scaleX(1) !important; animation: none !important; }
+  /* problem + how: everything visible, instantly */
+  .reveal .finding, .reveal .spine-step { opacity: 1 !important; transform: none !important; animation: none !important; }
+  .spine-rail { transform: scaleY(1) !important; animation: none !important; }
+  .reveal .finding .tag, .reveal .spine-step .step-num { animation: none !important; }
+  .btn:hover { transform: none; }
 }
 
 /* ── trace log ── */
@@ -481,7 +502,11 @@ code, .mono { font-family: var(--font-mono); }
 .trace-idx { color: var(--ink-3); width: 34px; flex: none; text-align: right; }
 .trace-agent { color: var(--cyan); width: 150px; flex: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .trace-action { color: var(--ink-1); flex: 1; word-break: break-word; }
-.trace-flag { color: var(--red); }
+/* narrow viewports: the fixed agent column would crush the action to a
+   sliver — let it shrink and truncate to one clean ellipsis */
+@media (max-width: 720px) {
+  .trace-agent { width: 108px; }
+}
 
 /* ── causation strip ── */
 .cause-flow { display: flex; align-items: center; gap: 0; flex-wrap: wrap; font-family: var(--font-mono); font-size: 12px; }
@@ -489,7 +514,10 @@ code, .mono { font-family: var(--font-mono); }
   padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: 6px;
   background: var(--bg-2); color: var(--ink-1); margin: 4px 0;
 }
-.cause-node.culprit { border-color: var(--red); color: var(--red); }
+.cause-node.culprit {
+  border-color: var(--red); color: var(--red);
+  background: color-mix(in srgb, var(--red) 10%, transparent);
+}
 .cause-arrow { color: var(--ink-3); padding: 0 10px; }
 
 /* ── banner / callout ── */
@@ -499,8 +527,8 @@ code, .mono { font-family: var(--font-mono); }
   font-family: var(--font-mono); font-size: 12.5px; color: var(--amber);
   display: flex; gap: 10px; align-items: flex-start;
 }
-.callout.red { border-color: rgba(229,72,77,0.4); background: rgba(229,72,77,0.08); color: var(--red); }
-.callout.green { border-color: rgba(46,196,110,0.4); background: rgba(46,196,110,0.08); color: #2ec46e; }
+.callout.red { border-color: color-mix(in srgb, var(--red) 40%, transparent); background: color-mix(in srgb, var(--red) 8%, transparent); color: var(--red); }
+.callout.green { border-color: color-mix(in srgb, var(--green) 40%, transparent); background: color-mix(in srgb, var(--green) 8%, transparent); color: var(--green); }
 
 /* ── steps (how it works) ── */
 .step { display: grid; grid-template-columns: 52px 1fr; gap: 18px; padding: 22px 0; border-bottom: 1px solid var(--line); }
@@ -513,9 +541,72 @@ code, .mono { font-family: var(--font-mono); }
 .step h3 { font-size: 19px; margin-bottom: 6px; }
 .step p { color: var(--ink-1); font-size: 15px; line-height: 1.6; max-width: 72ch; }
 
+/* ── problem findings — three logged fault entries ─────────────────────────
+   Each panel stamps in like a fault entry in a recorder log: the panel
+   registers, then the red indicator pings once (one glow pulse) and settles
+   to its steady state. Stagger capped via --i. */
+.reveal .finding { opacity: 0; transform: translateY(14px); }
+.reveal.on .finding {
+  animation: finding-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(var(--i, 0) * 140ms);
+}
+@keyframes finding-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+.reveal.on .finding .tag {
+  animation: tag-ping 0.7s ease-out both;
+  animation-delay: calc(var(--i, 0) * 140ms + 220ms);
+}
+@keyframes tag-ping {
+  0% { box-shadow: 0 0 0 0 transparent; }
+  35% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--red) 32%, transparent), 0 0 18px color-mix(in srgb, var(--red) 40%, transparent); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+/* ── causal spine (how it works) ───────────────────────────────────────────
+   The four steps are one chain, so the motion draws the chain: a thin rail
+   behind the station column draws top→bottom and each station energizes as
+   the line reaches it (station delay ≈ rail progress i/3 of the draw). */
+.spine { position: relative; }
+.spine-rail {
+  position: absolute;
+  left: 26px;              /* station cells are 52px wide — this is their center */
+  top: 48px;               /* first station center: 22px step padding + half cell */
+  bottom: 48px;            /* last station center */
+  width: 1px;
+  background: linear-gradient(180deg, var(--amber-dim), color-mix(in srgb, var(--red) 40%, transparent));
+  transform: scaleY(0);
+  transform-origin: top center;
+}
+.reveal.on .spine-rail { animation: spine-draw 1.15s cubic-bezier(0.3, 0, 0.2, 1) 0.2s both; }
+@keyframes spine-draw { to { transform: scaleY(1); } }
+
+.reveal .spine-step { opacity: 0; transform: translateX(10px); }
+.reveal.on .spine-step {
+  animation: spine-step-in 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(0.2s + var(--i, 0) * 0.383s);
+}
+@keyframes spine-step-in {
+  from { opacity: 0; transform: translateX(10px); }
+  to { opacity: 1; transform: none; }
+}
+/* station cell sits over the rail — needs the panel's ground so the line
+   passes behind it, not through it */
+.spine .step-num { position: relative; z-index: 1; background: var(--bg-1); }
+.reveal.on .spine-step .step-num {
+  animation: station-on 0.55s ease-out both;
+  animation-delay: calc(0.2s + var(--i, 0) * 0.383s);
+}
+@keyframes station-on {
+  0% { box-shadow: 0 0 0 0 rgba(245, 166, 35, 0); }
+  40% { box-shadow: 0 0 0 3px rgba(245, 166, 35, 0.26), 0 0 16px var(--amber-glow); }
+  100% { box-shadow: 0 0 0 0 rgba(245, 166, 35, 0); }
+}
+
 /* ── footer ── */
 .footer { border-top: 1px solid var(--line); padding: 34px 0 60px; margin-top: 40px; }
-.footer-inner { display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap; color: var(--ink-3); font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em; }
+.footer-inner { display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap; color: var(--ink-2); font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em; }
 .social { display: flex; gap: 6px; align-items: center; }
 .social a {
   width: 32px; height: 32px; display: grid; place-items: center;
@@ -528,6 +619,14 @@ code, .mono { font-family: var(--font-mono); }
 .muted { color: var(--ink-2); }
 .faint { color: var(--ink-3); }
 .mono { font-family: var(--font-mono); }
+
+/* bare text-button reset for the quiet inline actions (trace citations,
+   mandate accordion) — matches the nav's hover convention */
+.btn-bare {
+  background: none; border: none; padding: 0; cursor: pointer;
+  font-family: var(--font-mono);
+}
+.btn-bare:hover { color: var(--amber) !important; }
 .mt-8 { margin-top: 8px; } .mt-16 { margin-top: 16px; } .mt-24 { margin-top: 24px; } .mt-32 { margin-top: 32px; }
 .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .between { justify-content: space-between; }
