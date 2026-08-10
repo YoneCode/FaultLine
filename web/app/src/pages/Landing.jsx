@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   primaryIncidentId,
   getVerdict,
+  getTrace,
   getProvenance,
   getMode,
 } from "../lib/client.js";
@@ -157,22 +158,77 @@ function How() {
   );
 }
 
+/* ── overdrive: live evidence console ──────────────────────────────────────
+   One authored moment on the page. When the teaser enters the viewport it
+   boots like a flight recorder: the tamper-proof trace replays line by line,
+   the fault bars power up, percentages tick to the real on-chain values and
+   the trace hash draws in. All data is the finalized live investigation. */
+
+// IntersectionObserver hook — flips `on` once, then stays on.
+function useInView() {
+  const ref = useRef(null);
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+    if (typeof IntersectionObserver === "undefined") { setOn(true); return undefined; }
+    const io = new IntersectionObserver(
+      (entries) => entries.some((e) => e.isIntersecting) && setOn(true),
+      { threshold: 0.35 }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  return [ref, on];
+}
+
+// Ramping ticker: eases from 0 to `target` over ~`dur`ms when `on`.
+function useTick(target, on, delay = 0, dur = 900) {
+  const [val, setVal] = useState(0);
+  useEffect(() => {
+    if (!on) return undefined;
+    let raf; const t0 = performance.now() + delay;
+    const step = (now) => {
+      const p = Math.min(Math.max((now - t0) / dur, 0), 1);
+      setVal(Math.round(target * (1 - Math.pow(1 - p, 3)))); // ease-out cubic
+      if (p < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [on, target, delay, dur]);
+  return val;
+}
+
 function ReportTeaser() {
   const [verdict, setVerdict] = useState(null);
+  const [trace, setTrace] = useState([]);
+  const [consoleOn, setConsoleOn] = useState(false); // begins replay after boot
   const live = getMode() === "live";
   const provenance = getProvenance();
+  const [ref, on] = useInView();
+
   useEffect(() => {
-    let on = true;
-    getVerdict(primaryIncidentId()).then((v) => on && setVerdict(v));
-    return () => {
-      on = false;
-    };
+    let live_ = true;
+    Promise.all([getVerdict(primaryIncidentId()), getTrace(primaryIncidentId())])
+      .then(([v, t]) => { if (live_) { setVerdict(v); setTrace(t || []); } });
+    return () => { live_ = false; };
   }, []);
+
+  // Boot the console shortly after it scrolls into view; the trace replay is
+  // driven by CSS animation-delay, bars/tickers by their own observers.
+  useEffect(() => {
+    if (!on) return undefined;
+    const t = setTimeout(() => setConsoleOn(true), 350);
+    return () => clearTimeout(t);
+  }, [on]);
+
   if (!verdict) return null;
   const primary = verdict.allocations.reduce((a, b) => (b.fault_pct > a.fault_pct ? b : a));
+  const replay = trace.slice(0, 10);
+
   return (
-    <section className="section shell">
-      <div className="panel panel-pad">
+    <section className="section shell" ref={ref}>
+      <div className={`panel panel-pad console ${on ? "on" : ""}`}>
         <div className="row between">
           <div>
             <span className="eyebrow">A finished investigation</span>
@@ -187,12 +243,7 @@ function ReportTeaser() {
               {live && provenance && (
                 <>
                   {" "}
-                  <a
-                    className="mono"
-                    href={provenance.investigationTxUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
+                  <a className="mono" href={provenance.investigationTxUrl} target="_blank" rel="noreferrer">
                     Finalized on GenLayer Bradbury ↗
                   </a>
                 </>
@@ -201,24 +252,60 @@ function ReportTeaser() {
           </div>
           <a className="btn btn--primary" href={REPORT_HREF}>Read the report →</a>
         </div>
-        <div className="mt-24">
-          {verdict.allocations.map((a) => (
-            <div className="fault-row" key={a.agent_id}>
-              <div className="fault-head">
-                <span className="fault-agent">{a.agent_id}</span>
-                <span className={`fault-pct ${a.fault_pct === 0 ? "zero" : ""}`}>{a.fault_pct}%</span>
-              </div>
-              <div className="fault-track">
-                <div
-                  className={`fault-fill ${a.role === "proximate" ? "primary" : ""}`}
-                  style={{ "--pct": Math.max(a.fault_pct, 1.5) / 100 }}
-                />
-              </div>
+
+        {/* trace replay — the recorder plays the tamper-proof log back */}
+        <div className="trace console-trace mt-24" aria-hidden={!consoleOn}>
+          {replay.map((e, i) => (
+            <div className="trace-line" key={e.idx ?? i} style={{ animationDelay: `${i * 120}ms` }}>
+              <span className="trace-idx">{String(e.idx ?? i).padStart(2, "0")}</span>
+              <span className="trace-agent">{e.agent}</span>
+              <span className="trace-action">{e.action}</span>
             </div>
           ))}
         </div>
+
+        {/* verdict bars power up + percentages tick to the on-chain values */}
+        <div className="mt-24">
+          {verdict.allocations.map((a, i) => (
+            <ConsoleBar key={a.agent_id} a={a} on={consoleOn} delay={i * 90} />
+          ))}
+        </div>
+
+        {/* the hash that pins it — draws in like a signature */}
+        {live && provenance && (
+          <div className="console-hash mono mt-16">
+            <span className="faint">trace sha256 </span>
+            <HashReveal hex={provenance.traceSha256} on={consoleOn} />
+          </div>
+        )}
       </div>
     </section>
+  );
+}
+
+function ConsoleBar({ a, on, delay }) {
+  const pct = useTick(a.fault_pct, on, delay, 700);
+  return (
+    <div className="fault-row">
+      <div className="fault-head">
+        <span className="fault-agent">{a.agent_id}</span>
+        <span className={`fault-pct ${a.fault_pct === 0 ? "zero" : ""}`}>{pct}%</span>
+      </div>
+      <div className="fault-track">
+        <div
+          className={`fault-fill ${a.role === "proximate" ? "primary" : ""} ${on ? "on" : ""}`}
+          style={{ "--pct": Math.max(a.fault_pct, 1.5) / 100, transitionDelay: `${delay}ms` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// The trace hash reveals left-to-right like it's being read off the chain.
+function HashReveal({ hex, on }) {
+  const shown = useTick(hex.length, on, 200, 1100);
+  return (
+    <span className="console-hash-val">{on ? hex.slice(0, shown) : ""}</span>
   );
 }
 
