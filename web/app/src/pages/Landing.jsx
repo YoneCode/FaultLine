@@ -8,6 +8,21 @@ import {
 
 const REPORT_HREF = `#/report/${primaryIncidentId()}`;
 
+// Inline looping clip that stands in for a punctuation mark in a headline.
+function Punct({ src, label }) {
+  return (
+    <video
+      className="punct-vid"
+      src={src}
+      autoPlay
+      muted
+      loop
+      playsInline
+      aria-label={label}
+    />
+  );
+}
+
 function Hero() {
   return (
     <section className="hero">
@@ -26,9 +41,9 @@ function Hero() {
       <div className="hero-inner shell">
         <span className="eyebrow">GenLayer Intelligent Contract</span>
         <h1 className="hero-title">
-          <span className="alarm">When five agents fail together,</span>
+          <span className="alarm">When five agents fail together<Punct src="/gesso.mp4" label="," /></span>
           <br />
-          <span className="accent">someone has to read the black box.</span>
+          <span className="accent">someone has to read the black box<Punct src="/flower.mp4" label="." /></span>
         </h1>
         <p className="hero-lede">
           Multi-agent swarms now move real money. When one produces a costly failure, every
@@ -57,7 +72,7 @@ function Problem() {
     <section className="section shell" id="problem">
       <div className="h-block">
         <span className="eyebrow">The problem</span>
-        <h2>The happy path is built. The disagreement is not.</h2>
+        <h2>The happy path is built. The disagreement is not<Punct src="/clock.webm" label="." /></h2>
         <p>
           Orchestration frameworks made swarms of cooperating agents the default for real
           economic work — procurement, trading, logistics, ops. The surrounding stack ships
@@ -121,7 +136,7 @@ function How() {
     <section className="section shell" id="how">
       <div className="h-block">
         <span className="eyebrow">How it works</span>
-        <h2>Evidence first. Judgment second. Ruling never.</h2>
+        <h2>Evidence first. Judgment second. Ruling never<Punct src="/sunflower.webm" label="." /></h2>
         <p>
           FaultLine produces an evidentiary primitive, not a legal verdict — the neutral
           technical record that insurers, staking contracts, and courts consume.
@@ -162,7 +177,7 @@ function ReportTeaser() {
           <div>
             <span className="eyebrow">A finished investigation</span>
             <h2 className="mt-8" style={{ fontSize: "clamp(22px,3vw,34px)" }}>
-              The black-box report, rendered.
+              The black-box report, rendered<Punct src="/ufo.webm" label="." />
             </h2>
             <p className="muted mt-8" style={{ maxWidth: "56ch" }}>
               Five vendors' agents. $50,000 moved to a lookalike counterparty. One primary
@@ -258,7 +273,7 @@ function WhoPays() {
     <section className="section shell" id="who">
       <div className="h-block">
         <span className="eyebrow">Who uses it</span>
-        <h2>The people with the most to lose from an unanswered failure.</h2>
+        <h2>The people with the most to lose from an unanswered failure<Punct src="/globe.mp4" label="." /></h2>
       </div>
       <div className="panel panel-pad mt-32 spec">
         {rows.map(([k, v]) => (
