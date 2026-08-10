@@ -47,34 +47,43 @@ export function pickWallet(wallets) {
 const BRADBURY_HEX_CHAIN_ID = "0x1085"; // 4221
 const RPC_REGISTERED_KEY = "faultline_rpc_proxy_registered";
 
+// Same-origin id-normalizing proxy (functions/rpc.js).
+export function proxyRpcUrl() {
+  return `${window.location.origin}/rpc`;
+}
+
+export function bradburyProxyChainParams() {
+  return {
+    chainId: BRADBURY_HEX_CHAIN_ID,
+    chainName: "GenLayer Bradbury",
+    nativeCurrency: { name: "GEN", symbol: "GEN", decimals: 18 },
+    rpcUrls: [proxyRpcUrl()],
+    blockExplorerUrls: [EXPLORER],
+  };
+}
+
+// Ask the wallet to add (or update) Bradbury with the proxy RPC URL.
+// One-time consent prompt. Returns true when the wallet accepted.
+// Exported so the /investigate page can offer it as a manual button too.
+export async function registerProxyRpc(provider) {
+  try {
+    await provider.request({ method: "wallet_addEthereumChain", params: [bradburyProxyChainParams()] });
+    try { sessionStorage.setItem(RPC_REGISTERED_KEY, "1"); } catch { /* private mode */ }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function ensureProxyRpcRegistered(provider, wallet) {
   if (typeof window === "undefined" || typeof sessionStorage === "undefined") return;
   // Embedded wallets (Privy) broadcast through their own infra, not a
   // user-configured RPC — there is nothing to re-point.
   if (wallet && wallet.walletClientType === "privy") return;
   if (sessionStorage.getItem(RPC_REGISTERED_KEY) === "1") return;
-  try {
-    await provider.request({
-      method: "wallet_addEthereumChain",
-      params: [
-        {
-          chainId: BRADBURY_HEX_CHAIN_ID,
-          chainName: "GenLayer Bradbury",
-          nativeCurrency: { name: "GEN", symbol: "GEN", decimals: 18 },
-          // Same-origin proxy first: it rewrites string JSON-RPC ids to ints
-          // before forwarding to the upstream gateway, and restores them in
-          // the response so the wallet's response-id check still passes.
-          rpcUrls: [`${window.location.origin}/rpc`],
-          blockExplorerUrls: [EXPLORER],
-        },
-      ],
-    });
-    sessionStorage.setItem(RPC_REGISTERED_KEY, "1");
-  } catch {
-    // User declined the network update, or this wallet can't add chains.
-    // Continue — the write may still work if the wallet's relay already
-    // sends integer ids (non-MetaMask wallets often do).
-  }
+  // Declined or unsupported: continue — the write may still work if the
+  // wallet's relay already sends integer ids (non-MetaMask wallets often do).
+  await registerProxyRpc(provider);
 }
 
 export async function getWriteClient(wallet) {

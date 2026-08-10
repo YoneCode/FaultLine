@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useAccount, useChainId, useSwitchChain, useBalance } from "wagmi";
 import { getMode, getContractAddress } from "../lib/client.js";
-import { BRADBURY_CHAIN_ID, EXPLORER, getWriteClient, writeAndWait, sha256Hex, explorerTxUrl, BOND_WEI } from "../lib/wallet.js";
+import { BRADBURY_CHAIN_ID, EXPLORER, getWriteClient, writeAndWait, sha256Hex, explorerTxUrl, BOND_WEI, registerProxyRpc } from "../lib/wallet.js";
 import { LIVE_INCIDENT_ID } from "../lib/liveEvidence.js";
 
 // ── small form primitives (inline styles to match the existing design system) ──
@@ -116,6 +116,77 @@ function Preflight() {
           </span>
         </div>
       </div>
+    </div>
+  );
+}
+
+// One-time network setup. MetaMask relays signed transactions to Bradbury with
+// string JSON-RPC ids, which the gateway rejects ("cannot unmarshal string into
+// Go struct field Request.id of type int"). FaultLine serves an id-normalizing
+// RPC at /rpc — the fix is pointing the wallet at it once. Shown on the page so
+// an operator can apply it deliberately, before the first write.
+function RpcSetup() {
+  const [msg, setMsg] = useState(null);
+  const url = typeof window !== "undefined" ? `${window.location.origin}/rpc` : "/rpc";
+
+  async function addToWallet() {
+    setMsg(null);
+    const provider = window.ethereum;
+    if (!provider) {
+      setMsg({ kind: "err", text: "no browser wallet found on this page — paste the URL into your wallet's network settings manually" });
+      return;
+    }
+    const ok = await registerProxyRpc(provider);
+    setMsg(ok
+      ? { kind: "ok", text: "Bradbury RPC updated in your wallet ✓ — writes will now route through the id normalizer" }
+      : { kind: "err", text: "wallet declined the update — use the manual path below, or retry" });
+  }
+
+  async function copyUrl() {
+    try {
+      await navigator.clipboard.writeText(url);
+      setMsg({ kind: "ok", text: "RPC URL copied ✓" });
+    } catch {
+      setMsg({ kind: "err", text: "copy failed — click the URL to select it, then copy manually" });
+    }
+  }
+
+  return (
+    <div className="panel panel-pad" style={{ marginBottom: 18 }}>
+      <div className="row between">
+        <h2 style={{ fontSize: 15 }}>Bradbury RPC · one-time wallet setup</h2>
+        <span className="tag tag--cyan">write path</span>
+      </div>
+      <p className="faint mono mt-8" style={{ fontSize: 12, lineHeight: 1.6, maxWidth: "72ch" }}>
+        MetaMask broadcasts your signed transaction to Bradbury with string JSON-RPC ids; the gateway
+        only accepts integer ids and refuses the broadcast before it reaches consensus. This site serves
+        an id-normalizing RPC — same upstream node, ids rewritten both ways — at the URL below. Point
+        your wallet at it once and writes clear the gateway. Your keys never leave the wallet; the proxy
+        touches message ids only.
+      </p>
+      <div className="row mt-16" style={{ gap: 8, flexWrap: "wrap", alignItems: "stretch" }}>
+        <code
+          className="mono"
+          title="click to select"
+          style={{
+            flex: "1 1 260px", display: "flex", alignItems: "center", background: "var(--bg-1)",
+            border: "1px solid var(--line)", borderRadius: 2, padding: "8px 12px", fontSize: 12,
+            color: "var(--ink-1)", overflowWrap: "anywhere", userSelect: "all",
+          }}
+        >
+          {url}
+        </code>
+        <button className="btn btn--ghost" style={{ whiteSpace: "nowrap" }} onClick={copyUrl}>
+          Copy RPC URL
+        </button>
+        <button className="btn btn--primary" style={{ whiteSpace: "nowrap" }} onClick={addToWallet}>
+          Add to wallet
+        </button>
+      </div>
+      <p className="faint mono mt-8" style={{ fontSize: 11 }}>
+        manual path: MetaMask → Settings → Networks → GenLayer Bradbury → default RPC URL → paste the URL above
+      </p>
+      <Status state={msg ? { kind: msg.kind, msg: msg.text } : null} />
     </div>
   );
 }
@@ -331,6 +402,7 @@ export default function Investigate() {
       )}
 
       <div style={{ marginTop: 24 }}>
+        <RpcSetup />
         <ConnectGate>
           {(wallet) => (
             <>
