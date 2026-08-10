@@ -126,7 +126,10 @@ code, .mono { font-family: var(--font-mono); }
 
 /* ── layout shell ── */
 .shell { max-width: var(--maxw); margin: 0 auto; padding: 0 var(--pad); }
-.section { padding: clamp(48px, 8vw, 96px) 0; }
+/* top/bottom only — a shorthand here would clobber .shell's horizontal gutter
+   (equal specificity, later rule wins) and send every .shell.section page
+   full-bleed on narrow viewports */
+.section { padding-top: clamp(48px, 8vw, 96px); padding-bottom: clamp(48px, 8vw, 96px); }
 
 /* ── eyebrow / kicker ── */
 .eyebrow {
