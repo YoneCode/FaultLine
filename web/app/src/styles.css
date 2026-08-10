@@ -4,6 +4,40 @@
    One accent: signal amber. Everything else is instrumentation.
    ───────────────────────────────────────────────────────────────────────── */
 
+/* self-hosted faces — no CDN round-trip, latin subsets only.
+   IBM Plex Sans is the instrument voice (the family real aviation/industrial
+   interfaces ship); JetBrains Mono is the data voice for readouts and hashes. */
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal; font-weight: 400; font-display: swap;
+  src: url("/fonts/plexsans-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal; font-weight: 500; font-display: swap;
+  src: url("/fonts/plexsans-500.woff2") format("woff2");
+}
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal; font-weight: 600; font-display: swap;
+  src: url("/fonts/plexsans-600.woff2") format("woff2");
+}
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal; font-weight: 700; font-display: swap;
+  src: url("/fonts/plexsans-700.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal; font-weight: 400; font-display: swap;
+  src: url("/fonts/jbmono-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal; font-weight: 700; font-display: swap;
+  src: url("/fonts/jbmono-700.woff2") format("woff2");
+}
+
 :root {
   /* surface scale — near-black, slightly warm, layered */
   --bg-0: #0a0b0d;          /* page ground */
@@ -29,7 +63,7 @@
   --mono-tint: #9aa7ff;     /* identifiers, hashes */
 
   /* type */
-  --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-sans: "IBM Plex Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, "SFMono-Regular",
     Menlo, Consolas, monospace;
 
@@ -50,7 +84,10 @@ body {
   color: var(--ink-0);
   font-family: var(--font-sans);
   font-size: 16px;
-  line-height: 1.6;
+  line-height: 1.65;
+  /* light ink on a near-black ground reads thinner than the same weight on
+     white — a touch of tracking keeps body copy open */
+  letter-spacing: 0.005em;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -73,7 +110,13 @@ body::before {
 
 #root { position: relative; z-index: 1; }
 
-h1, h2, h3, h4 { font-weight: 700; line-height: 1.08; margin: 0; letter-spacing: -0.02em; }
+/* headings: the hero earns the 800; h2 steps down to 700 and h3/h4 to 600 so
+   the scale reads as weight steps, not just size steps */
+h1, h2 { font-weight: 700; line-height: 1.08; margin: 0; letter-spacing: -0.02em; }
+h3, h4 { font-weight: 600; line-height: 1.15; margin: 0; letter-spacing: -0.01em; }
+/* balanced line-breaking keeps multi-line headings from ragging a single
+   orphan word onto the last line */
+h1, h2, h3 { text-wrap: balance; }
 p { margin: 0; }
 a { color: var(--cyan); text-decoration: none; }
 a:hover { text-decoration: underline; }
@@ -252,8 +295,10 @@ code, .mono { font-family: var(--font-mono); }
 }
 .hero-title {
   font-size: clamp(38px, 6.4vw, 84px);
-  font-weight: 800;
-  letter-spacing: -0.04em;
+  /* Plex Sans caps at 700 — the display weight step comes from size + tight
+     tracking, not a weight the face doesn't ship */
+  font-weight: 700;
+  letter-spacing: -0.035em;
   margin: 18px 0 0;
 }
 .hero-title .accent { color: var(--amber); }
@@ -278,7 +323,7 @@ code, .mono { font-family: var(--font-mono); }
 /* ── section heading ── */
 .h-block { max-width: 68ch; }
 .h-block h2 { font-size: clamp(26px, 4vw, 44px); margin: 16px 0 14px; }
-.h-block p { color: var(--ink-1); font-size: 17px; }
+.h-block p { color: var(--ink-1); font-size: 17px; line-height: 1.62; }
 
 /* ── generic grid ── */
 .grid { display: grid; gap: 18px; }
@@ -316,7 +361,7 @@ code, .mono { font-family: var(--font-mono); }
 }
 .fault-fill.primary { background: linear-gradient(90deg, #b3313a, var(--red)); }
 .fault-sub { margin-top: 8px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.fault-reason { margin-top: 8px; font-size: 13px; color: var(--ink-1); }
+.fault-reason { margin-top: 8px; font-size: 13px; color: var(--ink-1); line-height: 1.55; }
 .fault-cite { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); }
 
 /* ── trace log ── */
@@ -361,7 +406,7 @@ code, .mono { font-family: var(--font-mono); }
   width: 52px; height: 52px; display: grid; place-items: center; flex: none;
 }
 .step h3 { font-size: 19px; margin-bottom: 6px; }
-.step p { color: var(--ink-1); font-size: 15px; }
+.step p { color: var(--ink-1); font-size: 15px; line-height: 1.6; max-width: 72ch; }
 
 /* ── footer ── */
 .footer { border-top: 1px solid var(--line); padding: 34px 0 60px; margin-top: 40px; }
