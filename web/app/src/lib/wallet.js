@@ -34,15 +34,35 @@ export function pickWallet(wallets) {
 // Build a genlayer-js client that signs with the connected wallet.
 // Ensures the wallet is on Bradbury first (assertChainMatch inside genlayer-js
 // throws if it isn't, and we want a clean switch rather than an error).
+//
+// We do NOT pass the address as a plain string: that path ends in
+// eth_sendTransaction, and the wallet then broadcasts with its own RPC stack —
+// MetaMask's json-rpc engine emits STRING request ids, which the Bradbury Go
+// gateway rejects ("cannot unmarshal string into Go struct field Request.id of
+// type int"). Instead we hand over a "local"-type account whose signer
+// delegates to the wallet's eth_signTransaction (sign-only, no broadcast);
+// genlayer-js then takes its local-account branch and broadcasts the signed
+// bytes itself via its direct JSON-RPC transport, which uses integer ids.
 export async function getWriteClient(wallet) {
   if (!wallet) throw new Error("No wallet connected");
   await wallet.switchChain(BRADBURY_CHAIN_ID);
   const provider = await wallet.getEthereumProvider();
-  return createClient({
-    chain: testnetBradbury,
-    account: wallet.address, // address string → routes signing through provider
-    provider,
-  });
+  const account = {
+    address: wallet.address,
+    type: "local",
+    // genlayer-js calls this with a viem tx request; the wallet signs it and
+    // returns the raw signed transaction without submitting anything.
+    async signTransaction(tx) {
+      const req = { from: wallet.address };
+      for (const [k, v] of Object.entries(tx)) {
+        if (k === "account" || v === undefined || v === null) continue;
+        if (k === "type") { req.type = v === "legacy" ? "0x0" : v; continue; }
+        req[k] = typeof v === "bigint" || typeof v === "number" ? `0x${v.toString(16)}` : v;
+      }
+      return provider.request({ method: "eth_signTransaction", params: [req] });
+    },
+  };
+  return createClient({ chain: testnetBradbury, account, provider });
 }
 
 // A write can fail at the EVM-submission layer while the tx never reaches

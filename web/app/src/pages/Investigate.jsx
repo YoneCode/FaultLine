@@ -19,7 +19,24 @@ function friendlyError(e) {
     return "signing cancelled — nothing was submitted";
   if (/insufficient funds/i.test(s))
     return "not enough GEN for gas + the 0.01 GEN bond — fund this wallet with Bradbury testnet GEN first";
+  if (/cannot unmarshal .*Request\.id|Parse error as single request/i.test(s))
+    return "your wallet's relay submitted the transaction with a string RPC id, which the Bradbury node rejects — a wallet/relay quirk, not your evidence. Retry with the MetaMask browser extension, and tell the FaultLine operator which wallet failed.";
+  if (/eth_signTransaction.*(does not exist|not supported|method not found|is not available)/i.test(s))
+    return "this wallet cannot sign without broadcasting (eth_signTransaction unsupported) — use the MetaMask browser extension on Bradbury.";
   return s;
+}
+
+// Mirrors contracts/faultline.py FORBIDDEN_TOKENS — the contract rejects these
+// pre-consensus, so we reject them before the wallet ever opens.
+const FORBIDDEN_TOKENS = [
+  "ignore previous", "ignore all previous", "system:", "assistant:",
+  "you are now", "override your", "disregard", "<|im_start|>", "<|im_end|>",
+  "[inst]", "[/inst]",
+];
+function scanForbidden(label, text) {
+  const low = text.toLowerCase();
+  const hit = FORBIDDEN_TOKENS.find((t) => low.includes(t));
+  if (hit) throw new Error(`${label} contains the contract-blocked token "${hit}" — the contract rejects prompt-injection phrases; reword it`);
 }
 
 // Ticking elapsed readout for long consensus waits — the instrument never goes quiet.
@@ -262,6 +279,25 @@ export default function Investigate() {
       const client = await getWriteClient(wallet);
       const already = await client.readContract({ address: contract, functionName: "has_incident", args: [id] });
       if (already) throw new Error(`incident already investigated: ${id}`);
+
+      // Mirror the contract's pre-consensus checks locally — a guaranteed
+      // revert should never reach the wallet. Each failure names the fix.
+      scanForbidden("the trace", traceText);
+      mandateList.forEach((m, i) => scanForbidden(`mandate ${i + 1}`, m));
+      traceText.split("\n").forEach((line, i) => {
+        if (!line.trim()) return;
+        try { JSON.parse(line); } catch { throw new Error(`trace line ${i} is not valid JSON — the contract would reject it`); }
+      });
+      for (const [i, a] of agentList.entries()) {
+        const raw = await client.readContract({ address: contract, functionName: "get_mandate", args: [a] });
+        const rec = raw ? (typeof raw === "string" ? JSON.parse(raw) : raw) : null;
+        if (!rec || !rec.sha256) throw new Error(`no pre-anchored mandate for ${a} — anchor it in step 1 first`);
+        const d = await sha256Hex(mandateList[i]);
+        if (String(rec.sha256).toLowerCase().replace(/^0x/, "") !== d)
+          throw new Error(`mandate ${i + 1} (${a}) does not match its anchored digest — paste the exact text you anchored in step 1`);
+      }
+      const traceCommit = await client.readContract({ address: contract, functionName: "get_trace_commitment", args: [digest] });
+      if (!traceCommit) throw new Error("trace digest is not anchored on-chain — run step 2 first");
 
       const { hash } = await writeAndWait(
         client, contract, "open_investigation",
