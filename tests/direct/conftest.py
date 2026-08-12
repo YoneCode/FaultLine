@@ -1,9 +1,14 @@
 """Shared helpers for FaultLine direct-mode tests.
 
-The contract's judge fetches a pre-anchored trace plus one mandate per agent and
-hashes each against its on-chain commitment. These builders produce the bodies and
-their real SHA-256 digests so tests register commitments that actually match what
-the judge will download — anything else would fail the hash check by construction.
+Evidence is INLINE: open_investigation takes the trace and one mandate text per
+agent as calldata and re-hashes each against its pre-anchored commitment. These
+builders produce the bodies and their real SHA-256 digests so tests anchor
+commitments that actually match the bytes they submit.
+
+v0.6.0: verdicts must also be GROUNDED — every allocation cites an event its own
+agent performed, echoes that event's action verbatim, and quotes the anchored
+mandate clause it claims was violated. verdict_obj() builds a verdict that
+satisfies those rules for make_trace()'s events; negative tests mutate it.
 """
 
 import hashlib
@@ -15,6 +20,17 @@ PLANNER = "planner@orbit-ops"
 EXECUTOR = "executor@swift-settle"
 
 MIN_BOND = 10_000_000_000_000_000  # 0.01 GEN in wei (matches contract MIN_BOND_WEI)
+
+# The default trace: one event per agent, in handoff order.
+DEFAULT_EVENTS = [
+    (SCOUT, "resolve_supplier"),
+    (PLANNER, "plan_purchase"),
+    (EXECUTOR, "sign_and_broadcast"),
+]
+
+# A clause that appears verbatim in every make_mandate() body, so an
+# out-of-mandate allocation can quote its own agent's anchored mandate.
+MANDATE_CLAUSE = "never move funds off-mandate"
 
 
 def sha256(text: str) -> str:
@@ -28,11 +44,7 @@ def make_trace(recorders=None, events=None) -> str:
     recorder field so we can make multi-source or single-source traces.
     """
     if events is None:
-        events = [
-            (SCOUT, "resolve_supplier"),
-            (PLANNER, "plan_purchase"),
-            (EXECUTOR, "sign_and_broadcast"),
-        ]
+        events = DEFAULT_EVENTS
     if recorders is None:
         recorders = ["acme", "orbit", "swift"]
     lines = []
@@ -51,24 +63,49 @@ def make_trace(recorders=None, events=None) -> str:
 def make_mandate(agent: str) -> str:
     return (
         f"{agent} mandate. Stay within your declared role; verify counterparties "
-        f"against the registry before approval; never move funds off-mandate."
+        f"against the registry before approval; {MANDATE_CLAUSE}."
     )
 
 
-def verdict_json(pcts, agent_ids, single_source=False, trace_index=1) -> str:
-    """A shape-valid verdict for the given agents. pcts must sum to 100."""
+def _first_event(agent, events):
+    """(index, action) of the agent's first event, or (None, None) if absent."""
+    for i, (aid, action) in enumerate(events):
+        if aid == agent:
+            return i, action
+    return None, None
+
+
+def verdict_obj(pcts, agent_ids, single_source=False, events=None) -> dict:
+    """A verdict that is shape-valid AND grounded in the given events.
+
+    Defaults: an agent with 0% is reported within mandate (no quote needed); any
+    agent bearing fault is reported out of mandate and quotes MANDATE_CLAUSE,
+    which is verbatim in its anchored mandate. Each allocation cites its own
+    agent's first event and echoes that event's action.
+    """
+    if events is None:
+        events = DEFAULT_EVENTS
     allocs = []
     for aid, pct in zip(agent_ids, pcts):
-        role = "uninvolved" if pct == 0 else ("proximate" if pct == max(pcts) else "contributing")
+        idx, action = _first_event(aid, events)
+        within = pct == 0
         allocs.append({
             "agent_id": aid,
             "fault_pct": pct,
-            "role": role,
-            "within_mandate": pct == 0,
-            "trace_index": trace_index,
+            "role": "uninvolved" if pct == 0 else ("proximate" if pct >= 50 else "contributing"),
+            "within_mandate": within,
+            # An agent absent from the trace has no event of its own to cite; it
+            # must carry 0%, and the contract skips the citation checks for it.
+            "trace_index": 0 if idx is None else idx,
+            "cited_action": "" if action is None else action,
+            "mandate_quote": "" if within else MANDATE_CLAUSE,
             "reason": f"{aid} allocation rationale",
         })
-    return json.dumps({"allocations": allocs, "trace_is_single_source": single_source})
+    return {"allocations": allocs, "trace_is_single_source": single_source}
+
+
+def verdict_json(pcts, agent_ids, single_source=False, events=None) -> str:
+    return json.dumps(verdict_obj(pcts, agent_ids, single_source=single_source, events=events))
 
 
 def mock_evidence(vm, trace, mandates: dict, trace_status=200):

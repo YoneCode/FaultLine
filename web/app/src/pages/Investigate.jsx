@@ -37,6 +37,46 @@ function scanForbidden(label, text) {
   if (hit) throw new Error(`${label} contains the contract-blocked token "${hit}" — the contract rejects prompt-injection phrases; reword it`);
 }
 
+// Deterministic limits and trace rules copied from contracts/faultline.py. Each
+// one reverts pre-consensus — i.e. after the wallet signed and gas was spent —
+// so they are enforced here first, and every message names the fix.
+const MAX_TRACE_CHARS = 24_000;
+const MAX_MANDATE_CHARS = 8_000;
+const MAX_AGENTS = 16;
+const MIN_TRACE_EVENTS = 2;
+const SINGLE_SOURCE_MAX_PCT = 60;
+
+// Mirror of the contract's _parse_trace: strict, because every allocation cites
+// a POSITION in this list. A line whose `idx` disagrees with its position would
+// let a verdict cite one event while the report renders another, so the contract
+// rejects it outright.
+function parseTraceLikeContract(traceText) {
+  const events = traceText
+    .split("\n")
+    .filter((l) => l.trim())
+    .map((line, pos) => {
+      let ev;
+      try { ev = JSON.parse(line); }
+      catch { throw new Error(`trace line ${pos} is not valid JSON — the contract would reject it`); }
+      if (!ev || typeof ev !== "object" || Array.isArray(ev))
+        throw new Error(`trace line ${pos} is not a JSON object — one event object per line`);
+      for (const f of ["agent_id", "action", "recorder"])
+        if (f in ev && typeof ev[f] !== "string")
+          throw new Error(`trace line ${pos}: "${f}" must be a string`);
+      const declared = "idx" in ev ? ev.idx : pos;
+      if (!Number.isInteger(declared) || declared !== pos)
+        throw new Error(`trace line ${pos} declares idx ${JSON.stringify(declared)} — idx must equal the line's own position, since the verdict cites trace[N] by position`);
+      return {
+        agent_id: (ev.agent_id ?? "").trim(),
+        action: (ev.action ?? "").trim(),
+        recorder: (ev.recorder ?? "").trim(),
+      };
+    });
+  if (events.length < MIN_TRACE_EVENTS)
+    throw new Error(`the trace holds ${events.length} event(s) — at least ${MIN_TRACE_EVENTS} are needed to apportion fault between agents`);
+  return events;
+}
+
 // Ticking elapsed readout for long consensus waits — the instrument never goes quiet.
 function Elapsed({ since }) {
   const [, force] = useState(0);
@@ -290,6 +330,47 @@ function MandateField({ agent, value, onChange }) {
   );
 }
 
+// Live read-out of the two facts the contract derives from the trace itself, so
+// they are visible before signing: who actually acts in it (v0.6.0 pins an agent
+// that never acts to 0%, since it has no event of its own to cite) and how many
+// recorders corroborate it (a single-recorder trace caps any one agent's share).
+function GroundingHint({ traceText, agentList }) {
+  if (!traceText.trim() || agentList.length === 0) return null;
+  let events;
+  try {
+    events = parseTraceLikeContract(traceText);
+  } catch (e) {
+    return (
+      <p className="mono" style={{ fontSize: 11, marginTop: 6, color: "var(--red)" }} aria-live="polite">
+        ✗ {e.message}
+      </p>
+    );
+  }
+  const present = new Set(events.map((e) => e.agent_id).filter(Boolean));
+  const absent = agentList.filter((a) => !present.has(a));
+  const recorders = new Set(events.map((e) => e.recorder).filter(Boolean));
+  const single = recorders.size <= 1;
+  return (
+    <p className="mono" style={{ fontSize: 11, marginTop: 6, lineHeight: 1.7, color: "var(--ink-3)" }} aria-live="polite">
+      {events.length} events · {recorders.size} recorder{recorders.size === 1 ? "" : "s"}
+      {single ? (
+        <span style={{ color: "var(--amber)" }}> · single-source: no agent may exceed {SINGLE_SOURCE_MAX_PCT}%</span>
+      ) : (
+        <span style={{ color: "var(--green)" }}> · corroborated by multiple recorders ✓</span>
+      )}
+      {absent.length > 0 && (
+        <>
+          <br />
+          <span style={{ color: "var(--amber)" }}>
+            {absent.join(", ")} never act{absent.length === 1 ? "s" : ""} in this trace — the verdict
+            must give {absent.length === 1 ? "it" : "them"} exactly 0%
+          </span>
+        </>
+      )}
+    </p>
+  );
+}
+
 export default function Investigate() {
   const live = getMode() === "live";
   const contract = getContractAddress();
@@ -400,10 +481,25 @@ export default function Investigate() {
       // revert should never reach the wallet. Each failure names the fix.
       scanForbidden("the trace", traceText);
       mandateList.forEach((m, i) => scanForbidden(`mandate ${i + 1}`, m));
-      traceText.split("\n").forEach((line, i) => {
-        if (!line.trim()) return;
-        try { JSON.parse(line); } catch { throw new Error(`trace line ${i} is not valid JSON — the contract would reject it`); }
+      if (traceText.length > MAX_TRACE_CHARS)
+        throw new Error(`the trace is ${traceText.length} chars — the contract caps inline evidence at ${MAX_TRACE_CHARS}; split the incident or trim non-material events`);
+      if (agentList.length > MAX_AGENTS)
+        throw new Error(`${agentList.length} agents listed — the contract caps an investigation at ${MAX_AGENTS}`);
+      mandateList.forEach((m, i) => {
+        if (m.length > MAX_MANDATE_CHARS)
+          throw new Error(`the mandate for ${agentList[i]} is ${m.length} chars — the contract caps one mandate at ${MAX_MANDATE_CHARS}`);
       });
+      // Trace shape + the apportionment guards: v0.6.0 requires every fault
+      // allocation to cite an event its own agent performed, so an agent that
+      // never acts in the trace is pinned to 0% and cannot carry the verdict.
+      const events = parseTraceLikeContract(traceText);
+      const present = new Set(events.map((e) => e.agent_id).filter(Boolean));
+      const named = agentList.filter((a) => present.has(a));
+      if (named.length === 0)
+        throw new Error("none of the listed agents appears in the trace — the ids here must match the trace's agent_id values character for character");
+      const recorders = new Set(events.map((e) => e.recorder).filter(Boolean));
+      if (recorders.size <= 1 && named.length < 2)
+        throw new Error(`this trace has a single recorder and only one listed agent acting in it — under the ${SINGLE_SOURCE_MAX_PCT}% cap on uncorroborated evidence the shares cannot reach 100%, so no valid verdict exists; add the other agents' events or a second recorder`);
       for (const [i, a] of agentList.entries()) {
         const raw = await client.readContract({ address: contract, functionName: "get_mandate", args: [a] });
         const rec = raw ? (typeof raw === "string" ? JSON.parse(raw) : raw) : null;
@@ -553,6 +649,7 @@ export default function Investigate() {
                 <div className="mt-16">
                   <label htmlFor="i-trace" style={fieldLabel}>trace text (must hash to the sha256 above)</label>
                   <textarea id="i-trace" style={textarea} value={traceText} onChange={(e) => setTraceText(e.target.value)} />
+                  <GroundingHint traceText={traceText} agentList={agentList} />
                 </div>
                 <div className="mt-16">
                   <span style={fieldLabel}>mandate texts — one field per agent, byte-exact as anchored in step 1</span>

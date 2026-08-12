@@ -450,6 +450,27 @@ code, .mono { font-family: var(--font-mono); }
 .fault-sub { margin-top: 8px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .fault-reason { margin-top: 8px; font-size: 13px; color: var(--ink-1); line-height: 1.55; }
 .fault-cite { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); }
+/* The verbatim mandate clause an out-of-mandate finding rests on. Quoted, not
+   paraphrased — the contract rejects a verdict whose quote is not a literal
+   substring of the hash-anchored mandate, so this reads as evidence. */
+.fault-quote {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-left: 2px solid var(--red);
+  background: color-mix(in srgb, var(--red) 6%, transparent);
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--ink-1);
+}
+.fault-quote-k {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--red);
+  margin-bottom: 4px;
+}
 
 /* ── live evidence console (overdrive: one authored moment on the landing) ──
    The report teaser boots like a flight recorder when it scrolls into view:

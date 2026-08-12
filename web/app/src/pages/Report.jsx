@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { getReport, getMode, getProvenance } from "../lib/client.js";
+import { getReport, getMode, getProvenance, EXPLORER } from "../lib/client.js";
 
 const ROLE_TAG = {
   proximate: "tag--red",
@@ -91,6 +91,11 @@ function FaultBars({ verdict, onCite, activeCite }) {
         <h3 style={{ fontSize: 18 }}>Fault allocation</h3>
         <span className="tag tag--amber">Σ = 100%</span>
       </div>
+      <p className="faint mono mt-8" style={{ fontSize: 12, lineHeight: 1.5 }}>
+        every allocation cites an event its own agent performed, echoes that event's
+        action verbatim, and quotes the anchored mandate clause it broke — each
+        validator re-checks all three against the hash-committed evidence
+      </p>
       <div className="mt-16">
         {sorted.map((a) => (
           <div className="fault-row" key={a.agent_id}>
@@ -116,9 +121,19 @@ function FaultBars({ verdict, onCite, activeCite }) {
                 title="Jump to the cited trace line"
               >
                 ▸ cites trace[{a.trace_index}]
+                {a.cited_action ? ` · ${a.cited_action}` : ""}
               </button>
             </div>
             <p className="fault-reason">{a.reason}</p>
+            {/* v0.6.0: an out-of-mandate finding must quote the anchored clause
+                verbatim — validators reject it otherwise, so this text is
+                provably part of the hash-committed mandate. */}
+            {!a.within_mandate && a.mandate_quote && (
+              <blockquote className="fault-quote">
+                <span className="fault-quote-k">mandate clause violated</span>
+                “{a.mandate_quote}”
+              </blockquote>
+            )}
           </div>
         ))}
       </div>
@@ -218,8 +233,58 @@ function Mandates({ mandates }) {
   );
 }
 
-export default function Report({ incidentId }) {
-  const [report, setReport] = useState(null);
+// Who vouched for the evidence. v0.6.0 records the address that anchored the
+// trace commitment and, per agent, the address that anchored the mandate the
+// verdict was judged against — read back from the contract, not from this page.
+function EvidenceSources({ provenance }) {
+  const oc = provenance?.onChain;
+  if (!oc) return null;
+  const operators = oc.mandate_operators || {};
+  const short = (h) =>
+    typeof h === "string" && h.length > 16 ? `${h.slice(0, 10)}…${h.slice(-4)}` : h || "—";
+  const link = (h) =>
+    h ? (
+      <a className="mono" href={`${EXPLORER}/address/${h}`} target="_blank" rel="noreferrer">
+        {short(h)} ↗
+      </a>
+    ) : (
+      <span className="mono-tint">—</span>
+    );
+  return (
+    <div className="panel panel-pad">
+      <div className="row between">
+        <h3 style={{ fontSize: 18 }}>Evidence sources</h3>
+        <span className="tag tag--cyan">ON-CHAIN</span>
+      </div>
+      <p className="faint mono mt-8" style={{ fontSize: 12, lineHeight: 1.5 }}>
+        attribution frozen at open time · get_evidence_provenance
+      </p>
+      <div className="spec mt-16">
+        <div className="spec-row">
+          <span className="spec-k">trace recorder</span>
+          <span className="spec-v">{link(oc.trace_recorder)}</span>
+        </div>
+        <div className="spec-row">
+          <span className="spec-k">opened by</span>
+          <span className="spec-v">{link(oc.opener)}</span>
+        </div>
+      </div>
+      <p className="faint mono mt-16" style={{ fontSize: 12 }}>
+        mandate operators — who anchored each agent's rules
+      </p>
+      <div className="spec">
+        {Object.keys(operators).map((agent) => (
+          <div className="spec-row" key={agent}>
+            <span className="spec-k">{agent}</span>
+            <span className="spec-v">{link(operators[agent])}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default function Report({ incidentId }) {  const [report, setReport] = useState(null);
   const [err, setErr] = useState(null);
   const [activeCite, setActiveCite] = useState(null);
 
@@ -306,6 +371,7 @@ export default function Report({ incidentId }) {
           <div className="grid" style={{ gap: 18 }}>
             <TraceLog trace={report.trace} activeCite={activeCite} citedSet={citedSet} />
             <Mandates mandates={report.mandates} />
+            <EvidenceSources provenance={report.provenance} />
           </div>
         </div>
       </div>

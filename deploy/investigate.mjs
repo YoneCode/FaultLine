@@ -39,12 +39,27 @@ function isTransientSubmissionRevert(e) {
   return s.includes("was reverted") && s.includes("consensus contract");
 }
 
+// The public Bradbury RPC returns -32005 ("node is at capacity, retry in ~Nms")
+// under load, BEFORE the tx is submitted — no gas spent, no state change — so it
+// is always safe to retry. This flow issues several writes, so handle it here too.
+function isCapacityLimit(e) {
+  const s = JSON.stringify(e?.cause ?? e ?? "");
+  return e?.code === -32005 || /-32005|node is at capacity|gas rate limit/i.test(s);
+}
+const capacityDelay = (e) => Number(e?.cause?.data?.retryAfterMs ?? e?.data?.retryAfterMs ?? 0);
+
 async function write(fn, args, value = 0n, attempt = 1) {
   try {
     const hash = await client.writeContract({ address: ADDRESS, functionName: fn, args, value });
     const receipt = await client.waitForTransactionReceipt({ hash, status: "ACCEPTED", retries: 200 });
     return { hash, receipt };
   } catch (e) {
+    if (attempt < 12 && isCapacityLimit(e)) {
+      const wait = Math.max(capacityDelay(e), 500) + attempt * 750;
+      console.log(`  node at capacity on ${fn} (attempt ${attempt}); retrying in ${wait}ms...`);
+      await sleep(wait);
+      return write(fn, args, value, attempt + 1);
+    }
     if (attempt < 4 && isTransientSubmissionRevert(e)) {
       console.log(`  transient submission revert on ${fn} (attempt ${attempt}); retrying...`);
       await sleep(4000 * attempt);
@@ -107,8 +122,28 @@ else {
   const v = JSON.parse(raw);
   for (const a of v.allocations) {
     console.log(`  ${String(a.fault_pct).padStart(3)}%  ${a.role.padEnd(12)} ${a.agent_id}  (within_mandate=${a.within_mandate}, trace_index=${a.trace_index})`);
+    // v0.6.0 grounding: the cited event's action echoed verbatim, and for an
+    // out-of-mandate finding the clause quoted verbatim from the anchored
+    // mandate. Both were re-verified by every validator before this finalized.
+    if (a.cited_action) console.log(`         cites trace[${a.trace_index}] action "${a.cited_action}"`);
+    if (a.mandate_quote) console.log(`         clause  "${a.mandate_quote}"`);
   }
   console.log("  trace_is_single_source:", v.trace_is_single_source);
+}
+
+// 5. evidence attribution (v0.6.0 view; blank on older deployments)
+let prov = "";
+try {
+  prov = await client.readContract({ address: ADDRESS, functionName: "get_evidence_provenance", args: [incident] });
+} catch { /* view absent on pre-v0.6.0 contracts */ }
+if (prov) {
+  const p = JSON.parse(prov);
+  console.log("\n=== EVIDENCE SOURCES (on-chain) ===");
+  console.log("  trace recorder :", p.trace_recorder);
+  console.log("  opened by      :", p.opener, "at", p.opened_at);
+  for (const [agent, op] of Object.entries(p.mandate_operators || {})) {
+    console.log(`  mandate operator ${agent.padEnd(26)} ${op}`);
+  }
 }
 console.log("\ndeployer balance after :", balanceAfter.toString(), "wei");
 console.log("net (before-after)     :", (balanceBefore - balanceAfter).toString(), "wei (gas; bond refunded on finalize)");

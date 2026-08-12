@@ -26,19 +26,20 @@ import {
 } from "./liveEvidence.js";
 import { sha256Hex } from "./hash.js";
 
-// The deployed v0.5.0 contract on Bradbury — the one that finalized the live
-// verdict (tx 0x479359…c34e9). Hardcoded so the dapp is live out of the box;
+// The deployed v0.6.0 contract on Bradbury — the one that finalized the live
+// verdict under substantive validation (tx 0xfee660…10c55, 5/5 validators AGREE,
+// bond refunded). Hardcoded so the dapp is live out of the box;
 // VITE_FAULTLINE_ADDRESS overrides it.
-const DEFAULT_ADDRESS = "0x94941FB76b1590CD4835930dF8B955d5718DAe97";
+const DEFAULT_ADDRESS = "0xd4F5377A7CF70D9C90164eDaa103Fbb2553B02c5";
 const CONTRACT_ADDRESS = import.meta.env.VITE_FAULTLINE_ADDRESS || DEFAULT_ADDRESS;
 const MODE = import.meta.env.VITE_FAULTLINE_MODE || "live";
 
 // Verified on-chain metadata for the finalized live investigation.
 export const INVESTIGATION_TX =
-  "0x4793599510a8827397a2472fca5801738f9391fd3f9a1ee926a2d4add93c34e9";
+  "0xfee660d1d5903e729a67e7c4031547c00ad106fcd59ef71a1d34fd7e7c210c55";
 export const EXPLORER = "https://explorer-bradbury.genlayer.com";
-const OPENED_AT = "2026-08-09T17:45:29Z";
-const FINALIZED_AT = "2026-08-09T17:45:51Z";
+const OPENED_AT = "2026-08-12T18:39:56Z";
+const FINALIZED_AT = "2026-08-12T18:41:16Z";
 
 let liveClientPromise = null;
 async function getLiveClient() {
@@ -233,12 +234,28 @@ export function getProvenance(incidentId = LIVE_INCIDENT_ID) {
   };
 }
 
+// Evidence attribution read straight off the chain (contract v0.6.0+):
+// which address anchored the trace commitment, and which address anchored each
+// agent's mandate, frozen at open time. Older deployments do not expose the
+// view — a failed read means "no on-chain provenance", not an error, so the
+// report still renders against a v0.5.0 contract.
+export async function getOnChainProvenance(incidentId) {
+  if (getMode() !== "live") return null;
+  try {
+    const raw = await readLive("get_evidence_provenance", [incidentId]);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function getReport(incidentId) {
-  const [verdict, trace, mandates, groundTruth] = await Promise.all([
+  const [verdict, trace, mandates, groundTruth, onChain] = await Promise.all([
     getVerdict(incidentId),
     getTrace(incidentId),
     getMandates(incidentId),
     getGroundTruth(incidentId),
+    getOnChainProvenance(incidentId),
   ]);
   if (!verdict) return null;
   const evidenceSource =
@@ -247,5 +264,20 @@ export async function getReport(incidentId) {
       : loadEvidence(incidentId)
         ? "cache"
         : "none";
-  return { verdict, trace, mandates, groundTruth, provenance: getProvenance(incidentId), evidenceSource };
+  const base = getProvenance(incidentId);
+  // On-chain values win where they exist: the contract is the record of what the
+  // verdict rested on, the local cache is only a convenience.
+  const provenance = base
+    ? {
+        ...base,
+        onChain,
+        traceSha256: base.traceSha256 ?? onChain?.trace_sha256 ?? null,
+        openedAt: base.openedAt ?? onChain?.opened_at ?? null,
+      }
+    : null;
+  const withOpened =
+    verdict.opened_at || !onChain?.opened_at
+      ? verdict
+      : { ...verdict, opened_at: onChain.opened_at };
+  return { verdict: withOpened, trace, mandates, groundTruth, provenance, evidenceSource };
 }
